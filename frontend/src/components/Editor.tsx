@@ -1178,27 +1178,48 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
           </span>
         </div>
         <div className="toolbar-center">
-          <span className="toolbar-node-count">{nodes.length} nodes · {edges.length} edges</span>
+          <div className="toolbar-node-count center">
+            <div>
+              <div>
+              {nodes.length} 
+              </div>
+              <div className='toolbar-node-sub'>
+                nodes
+              </div>
+            </div>
+            ·
+            <div>
+              <div>
+                {edges.length}
+              </div>
+              <div  className='toolbar-node-sub'>
+                edges
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="toolbar-right">
-          <button className="toolbar-btn" onClick={resetView} title="Fit to view">
-            ⊞ Fit
-          </button>
-          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.min(v.scale * 1.2, MAX_SCALE) }))}>
-            +
-          </button>
-          <span className="toolbar-zoom">{Math.round(viewport.scale * 100)}%</span>
-          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
-            −
-          </button>
+        <div className='toolbar-center'>
           <button
             className="toolbar-btn toolbar-btn-analyze"
             onClick={runAnalysis}
             title="Analyse this canvas"
           >
-            📊 Analyse
+            Analyse
           </button>
         </div>
+      </div>
+
+      <div className='view-shelf'>
+        <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
+          −
+        </button>
+        <span className="toolbar-zoom">{Math.round(viewport.scale * 100)}%</span>
+        <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.min(v.scale * 1.2, MAX_SCALE) }))}>
+          +
+        </button>
+        <button className="toolbar-btn" onClick={resetView} title="Fit to view">
+            ⊞ Fit
+        </button>
       </div>
 
       {/* ── Canvas area ─────────────────────────────────────── */}

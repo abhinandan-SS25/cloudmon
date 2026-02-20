@@ -234,21 +234,6 @@ export default function ProjectEditorPage() {
               </button>
             </div>
 
-            {/* Cloud provider selector */}
-            <div className="cloud-provider-selector">
-              {(['aws', 'gcp', 'azure'] as CloudProvider[]).map((p) => (
-                <button
-                  key={p}
-                  className={`cloud-tab cloud-tab-${p} ${
-                    project.cloudProvider === p ? 'active' : ''
-                  }`}
-                  onClick={() => handleSetCloudProvider(p)}
-                >
-                  {PROVIDER_LABELS[p]}
-                </button>
-              ))}
-            </div>
-
             {/* File list */}
             <div className="stage-shelf-list">
               {/* Base Architecture – always first */}

@@ -4,6 +4,8 @@
    ═══════════════════════════════════════════════════════════════ */
 import React from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+
+// @ts-ignore
 import './App.css';
 
 import { ProjectsProvider, useProjects } from './context/ProjectsContext';
