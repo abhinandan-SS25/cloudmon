@@ -1,819 +1,1385 @@
 /* ═══════════════════════════════════════════════════════════════
-   Editor.tsx – CloudMon Editor Component
-   Main canvas editor with cytoscape visualization.
+   Editor.tsx – Infinite SVG canvas editor
+   Features: pan/zoom, drag nodes, connect handles, right-click
+   context menu, floating palette, node inspector, analysis panel.
    ═══════════════════════════════════════════════════════════════ */
-
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import CytoscapeComponent from 'react-cytoscapejs';
-import cytoscape from 'cytoscape';
-
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import catalog, { PALETTE_SECTIONS } from '../data/componentCatalog';
+import { CLOUD_MAPPINGS } from '../data/cloudInstanceTypes';
+import type { CloudServiceOption } from '../data/cloudInstanceTypes';
+import { analyzeCanvas } from '../utils/analysisEngine';
+import { buildEdge, buildNode, edgePath, NODE_H, NODE_W, nodeCenter } from '../utils/canvasUtils';
 import {
-  ALL_SERVICES,
-  ServiceDefinition,
-  InstanceType as InstanceDef,
-  CATEGORY_COLORS,
-} from '../serviceCatalog';
-import { ServiceNodeData } from '../ServiceNode';
-import { ConnectionKind } from '../AnimatedEdge';
-import { EditorProps, CyNode, CyEdge } from '../types';
-import { nextId } from '../utils/canvasUtils';
-import { useConnectionHandles } from '../hooks/useConnectionHandles';
-import Sidebar from '../Sidebar';
-import Toolbar from '../Toolbar';
-import ConnectionDialog from '../ConnectionDialog';
-import InstancePicker from '../InstancePicker';
-import AnalysisPanel, { AnalysisResult } from '../AnalysisPanel';
+  AnalysisResult,
+  CanvasState,
+  ContextMenuState,
+  CyEdge,
+  CyNode,
+  Phase,
+  ViewportState,
+} from '../types';
+import type {
+  CloudProvider,
+  DeploymentMode,
+} from '../types';
 
-export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
-  const cyRef = useRef<cytoscape.Core | null>(null);
-  const isUpdatingFromCy = useRef(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes] = useState<CyNode[]>(activeCanvas.nodes);
-  const [edges, setEdges] = useState<CyEdge[]>(activeCanvas.edges);
+/* ── Constants ────────────────────────────────────────────────── */
+const MIN_SCALE = 0.15;
+const MAX_SCALE = 3;
+const HANDLE_R = 7;
 
-  /* sidebar state */
-  const [connectionKind, setConnectionKind] = useState<ConnectionKind>('data');
+/* ── Helpers ─────────────────────────────────────────────────── */
+function screenToCanvas(
+  screenX: number,
+  screenY: number,
+  vp: ViewportState,
+  svgRect: DOMRect
+): { x: number; y: number } {
+  return {
+    x: (screenX - svgRect.left - vp.x) / vp.scale,
+    y: (screenY - svgRect.top - vp.y) / vp.scale,
+  };
+}
 
-  /* pending connection (waiting for dialog confirmation) */
-  const [pendingConn, setPendingConn] = useState<{ source: string; target: string } | null>(null);
+function handlePositions(node: CyNode) {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  return {
+    top:    { x: cx,              y: node.y },
+    bottom: { x: cx,              y: node.y + node.height },
+    left:   { x: node.x,          y: cy },
+    right:  { x: node.x + node.width,  y: cy },
+  };
+}
 
-  /* instance picker state */
-  const [pendingDrop, setPendingDrop] = useState<{
-    service: ServiceDefinition;
-    position: { x: number; y: number };
-  } | null>(null);
+function formatNumber(n: number): string {
+  if (!isFinite(n)) return '∞';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)    return (n / 1_000).toFixed(1) + 'K';
+  return n.toFixed(0);
+}
 
-  /* reconfigure existing node */
-  const [reconfigNode, setReconfigNode] = useState<{
-    nodeId: string;
-    service: ServiceDefinition;
-  } | null>(null);
+/* ── Sub-components ───────────────────────────────────────────── */
 
-  /* analysis */
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-
-  /* context menu */
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    nodeId?: string;
-    edgeId?: string;
-  } | null>(null);
-
-  /* right sidebar - selected node */
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-  /* left sidebar expanded state */
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
-
-  /* connection handles hook */
-  const {
-    connectionHandles,
-    hoveredHandle,
-    setHoveredHandle,
-    dragState,
-    handleHandlePointerDown,
-    handleHandlePointerMove,
-    handleHandlePointerUp,
-  } = useConnectionHandles({
-    cyRef,
-    canvasRef,
-    nodes,
-    phase,
-    onEdgeCreate: (source, target) => {
-      const newEdge: CyEdge = {
-        data: {
-          id: `e_${source}_${target}_${Date.now()}`,
-          source,
-          target,
-          kind: 'data',
-          label: '',
-          bandwidth: '',
-        },
-      };
-      setEdges((eds) => [...eds, newEdge]);
-    },
-    onPendingConnection: (source, target) => {
-      setPendingConn({ source, target });
-    },
-  });
-
-  useEffect(() => {
-    setNodes(activeCanvas.nodes);
-    setEdges(activeCanvas.edges);
-    setAnalysis(null);
-  }, [activeCanvas.nodes, activeCanvas.edges, phase]);
-
-  /* ── update cytoscape when nodes/edges change ─────────────────── */
-  useEffect(() => {
-    if (!cyRef.current || isUpdatingFromCy.current) {
-      isUpdatingFromCy.current = false;
-      return;
-    }
-    const cy = cyRef.current;
-    cy.remove(cy.elements());
-    
-    const elements = [
-      ...nodes.map(n => ({ data: n.data, position: n.position })),
-      ...edges.map(e => ({ data: e.data }))
-    ];
-    
-    cy.add(elements);
-    onCanvasChange(nodes, edges);
-  }, [nodes, edges, onCanvasChange]);
-
-  /* ── connection handling ─────────────────────────────────────── */
-  const confirmConnection = useCallback(
-    (kind: ConnectionKind, label: string, bandwidth: string) => {
-      if (!pendingConn) return;
-      const newEdge: CyEdge = {
-        data: {
-          id: `e_${pendingConn.source}_${pendingConn.target}_${Date.now()}`,
-          source: pendingConn.source,
-          target: pendingConn.target,
-          kind,
-          label,
-          bandwidth,
-        },
-      };
-      setEdges((eds) => [...eds, newEdge]);
-      setPendingConn(null);
-    },
-    [pendingConn]
-  );
-
-  /* ── helper: create a node from a service + optional instance ── */
-  const createNode = useCallback(
-    (svc: ServiceDefinition, position: { x: number; y: number }, inst: InstanceDef | null) => {
-      const newNode: CyNode = {
-        data: {
-          id: nextId(),
-          serviceId: svc.id,
-          label: svc.label,
-          icon: svc.icon,
-          provider: svc.provider,
-          category: svc.category,
-          throughput: inst ? inst.throughput : svc.defaultThroughput,
-          latency: inst ? inst.latency : svc.defaultLatency,
-          instanceTypeId: inst?.id,
-          instanceLabel: inst?.label,
-          vcpus: inst?.vcpus,
-          memoryGb: inst?.memoryGb,
-          replicas: 1,
-        },
-        position,
-      };
-      isUpdatingFromCy.current = false;
-      setNodes((nds) => [...nds, newNode]);
-    },
-    []
-  );
-
-  /* ── drag-and-drop from sidebar ─────────────────────────────── */
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      if (!cyRef.current) return;
-
-      const serviceId = e.dataTransfer.getData('application/cloudmon-service');
-      if (!serviceId) return;
-
-      const svc = ALL_SERVICES.find((s) => s.id === serviceId);
-      if (!svc) return;
-
-      const container = e.currentTarget as HTMLElement;
-      const bounds = container.getBoundingClientRect();
-      const position = {
-        x: e.clientX - bounds.left,
-        y: e.clientY - bounds.top,
-      };
-
-      if (svc.instanceTypes && svc.instanceTypes.length > 0) {
-        setPendingDrop({ service: svc, position });
-      } else {
-        createNode(svc, position, null);
-      }
-    },
-    [createNode]
-  );
-
-  const onDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, svc: ServiceDefinition) => {
-      e.dataTransfer.setData('application/cloudmon-service', svc.id);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-    []
-  );
-
-  /* ── instance picker callbacks ──────────────────────────────── */
-  const confirmInstanceDrop = useCallback(
-    (inst: InstanceDef | null) => {
-      if (!pendingDrop) return;
-      createNode(pendingDrop.service, pendingDrop.position, inst);
-      setPendingDrop(null);
-    },
-    [pendingDrop, createNode]
-  );
-
-  const confirmReconfig = useCallback(
-    (inst: InstanceDef | null) => {
-      if (!reconfigNode) return;
-      const svc = reconfigNode.service;
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.data.id !== reconfigNode.nodeId) return n;
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              throughput: inst ? inst.throughput : svc.defaultThroughput,
-              latency: inst ? inst.latency : svc.defaultLatency,
-              instanceTypeId: inst?.id,
-              instanceLabel: inst?.label,
-              vcpus: inst?.vcpus,
-              memoryGb: inst?.memoryGb,
-              replicas: n.data.replicas ?? 1,
-            },
-          };
-        })
-      );
-      setReconfigNode(null);
-    },
-    [reconfigNode]
-  );
-
-  /* ── delete selected nodes/edges via Backspace/Delete ────────── */
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        if (!cyRef.current) return;
-        const selected = cyRef.current.$(':selected');
-        const nodeIds = new Set<string>();
-        const edgeIds = new Set<string>();
-        
-        selected.forEach((ele: any) => {
-          if (ele.isNode()) {
-            nodeIds.add(ele.id());
-          } else if (ele.isEdge()) {
-            edgeIds.add(ele.id());
-          }
-        });
-        
-        if (nodeIds.size > 0) {
-          setNodes(nds => nds.filter(n => !nodeIds.has(n.data.id)));
-        }
-        if (edgeIds.size > 0) {
-          setEdges(eds => eds.filter(e => !edgeIds.has(e.data.id)));
-        }
-      }
-    },
-    []
-  );
-
-  /* ── toolbar actions ────────────────────────────────────────── */
-  const clearCanvas = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-    setAnalysis(null);
-  }, []);
-
-  const autoLayout = useCallback(() => {
-    const cols = 4;
-    const gapX = 220;
-    const gapY = 200;
-    setNodes((nds) =>
-      nds.map((n, i) => ({
-        ...n,
-        position: {
-          x: 40 + (i % cols) * gapX,
-          y: 40 + Math.floor(i / cols) * gapY,
-        },
-      }))
-    );
-  }, []);
-
-  const runAnalysis = useCallback(() => {
-    const nodeMap = new Map(nodes.map((n) => [n.data.id, n]));
-    const targetIds = new Set(edges.map((e) => e.data.target));
-    const sourceNodes = nodes.filter((n) => !targetIds.has(n.data.id));
-
-    const adj = new Map<string, string[]>();
-    for (const e of edges) {
-      const list = adj.get(e.data.source) || [];
-      list.push(e.data.target);
-      adj.set(e.data.source, list);
-    }
-
-    const flowPaths: { path: string[]; latency: number }[] = [];
-    const visited = new Set<string>();
-
-    function dfs(nodeId: string, path: string[], latency: number) {
-      const node = nodeMap.get(nodeId);
-      if (!node) return;
-      const d = node.data;
-      const name = d.instanceLabel ? `${d.label} (${d.instanceLabel})` : d.label;
-      const newPath = [...path, name];
-      const newLatency = latency + (d.latency || 0);
-      const neighbours = adj.get(nodeId) || [];
-      if (neighbours.length === 0) {
-        flowPaths.push({ path: newPath, latency: newLatency });
-      } else {
-        for (const nb of neighbours) {
-          if (!visited.has(nb)) {
-            visited.add(nb);
-            dfs(nb, newPath, newLatency);
-            visited.delete(nb);
-          }
-        }
-      }
-    }
-
-    for (const src of sourceNodes.length ? sourceNodes : nodes.slice(0, 1)) {
-      visited.add(src.data.id);
-      dfs(src.data.id, [], 0);
-      visited.delete(src.data.id);
-    }
-
-    let minTp = Infinity;
-    let bottleneck: { nodeId: string; label: string; reason: string } | null = null;
-    for (const n of nodes) {
-      const d = n.data;
-      if (d.throughput < minTp) {
-        minTp = d.throughput;
-        const name = d.instanceLabel ? `${d.label} (${d.instanceLabel})` : d.label;
-        bottleneck = {
-          nodeId: n.data.id,
-          label: name,
-          reason: `Lowest throughput in cluster (${d.throughput.toLocaleString()} req/s)`,
-        };
-      }
-    }
-
-    const totalThroughput = nodes.reduce(
-      (s, n) => Math.min(s, n.data.throughput),
-      Infinity
-    );
-
-    const maxPathLatency = flowPaths.reduce((m, fp) => Math.max(m, fp.latency), 0);
-
-    setAnalysis({
-      nodes: nodes.length,
-      edges: edges.length,
-      totalThroughput: totalThroughput === Infinity ? 0 : totalThroughput,
-      totalLatency: maxPathLatency,
-      bottlenecks: bottleneck ? [bottleneck] : [],
-      flowPaths: flowPaths.slice(0, 10),
-    });
-  }, [nodes, edges]);
-
-  /* ── cytoscape initialization ───────────────────────────────── */
-  const handleCyInit = useCallback((cy: cytoscape.Core) => {
-    cyRef.current = cy;
-    
-    // Context menu on nodes
-    cy.on('cxttap', 'node', (evt) => {
-      evt.preventDefault?.();
-      const nodeId = evt.target.id();
-      setContextMenu({
-        x: evt.position.x + window.scrollX,
-        y: evt.position.y + window.scrollY,
-        nodeId,
-      });
-    });
-    
-    // Context menu on edges
-    cy.on('cxttap', 'edge', (evt) => {
-      evt.preventDefault?.();
-      const edgeId = evt.target.id();
-      setContextMenu({
-        x: evt.position.x + window.scrollX,
-        y: evt.position.y + window.scrollY,
-        edgeId,
-      });
-    });
-    
-    // Close context menu on tap
-    cy.on('tap', () => {
-      setContextMenu(null);
-    });
-    
-    // Double-click to reconfigure nodes
-    cy.on('dbltap', 'node', (evt) => {
-      const cyNode = evt.target;
-      const nodeId = cyNode.id();
-      const serviceId = cyNode.data('serviceId');
-      
-      const svc = ALL_SERVICES.find((s) => s.id === serviceId);
-      if (svc && svc.instanceTypes && svc.instanceTypes.length > 0) {
-        setReconfigNode({ nodeId, service: svc });
-      }
-    });
-    
-    // Select nodes for right sidebar
-    cy.on('select', 'node', (evt) => {
-      setSelectedNodeId(evt.target.id());
-    });
-    
-    cy.on('unselect', (evt) => {
-      if (!evt.target.isEdge?.()) {
-        setSelectedNodeId(null);
-      }
-    });
-    
-    // Track position changes
-    cy.on('position', 'node', (evt) => {
-      const nodeId = evt.target.id();
-      const pos = evt.target.position();
-      isUpdatingFromCy.current = true;
-      setNodes(nds => nds.map(n => 
-        n.data.id === nodeId ? { ...n, position: { x: pos.x, y: pos.y } } : n
-      ));
-    });
-  }, []);
-
-  // Delete node from context menu
-  const deleteNode = useCallback((nodeId: string) => {
-    setNodes(nds => nds.filter(n => n.data.id !== nodeId));
-    setEdges(eds => eds.filter(e => e.data.source !== nodeId && e.data.target !== nodeId));
-    setContextMenu(null);
-    setSelectedNodeId(null);
-  }, []);
-
-  // Delete edge from context menu
-  const deleteEdge = useCallback((edgeId: string) => {
-    setEdges(eds => eds.filter(e => e.data.id !== edgeId));
-    setContextMenu(null);
-  }, []);
-
-  // Update selected node properties
-  const updateSelectedNode = useCallback((updates: Partial<ServiceNodeData>) => {
-    if (!selectedNodeId) return;
-    setNodes(nds => nds.map(n => 
-      n.data.id === selectedNodeId 
-        ? { ...n, data: { ...n.data, ...updates } }
-        : n
-    ));
-  }, [selectedNodeId]);
-
-  /* ── cytoscape stylesheet ───────────────────────────────────── */
-  const cytoscapeStyle = useMemo(() => [
-    {
-      selector: 'node',
-      style: {
-        'background-color': (ele: any) => {
-          const cat = ele.data('category');
-          return cat && CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS] 
-            ? CATEGORY_COLORS[cat as keyof typeof CATEGORY_COLORS] 
-            : '#94a3b8';
-        },
-        'label': (ele: any) => {
-          const label = ele.data('label');
-          const instanceLabel = ele.data('instanceLabel');
-          return instanceLabel ? `${label}\n${instanceLabel}` : label;
-        },
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'color': '#1e293b',
-        'font-size': '12px',
-        'text-wrap': 'wrap',
-        'text-max-width': '140px',
-        'width': 140,
-        'height': 80,
-        'shape': 'roundrectangle',
-        'border-width': 2,
-        'border-color': '#e2e8f0',
-      }
-    },
-    {
-      selector: 'node:selected',
-      style: {
-        'border-width': 3,
-        'border-color': '#0f766e',
-      }
-    },
-    {
-      selector: 'edge',
-      style: {
-        'width': 2,
-        'line-color': (ele: any) => {
-          const kind = ele.data('kind');
-          if (kind === 'control') return '#f59e0b';
-          if (kind === 'event') return '#8b5cf6';
-          return '#64748b';
-        },
-        'target-arrow-color': (ele: any) => {
-          const kind = ele.data('kind');
-          if (kind === 'control') return '#f59e0b';
-          if (kind === 'event') return '#8b5cf6';
-          return '#64748b';
-        },
-        'target-arrow-shape': 'triangle',
-        'curve-style': 'bezier',
-        'label': (ele: any) => ele.data('label') || '',
-        'font-size': '10px',
-        'text-rotation': 'autorotate',
-        'text-margin-y': -10,
-      }
-    },
-    {
-      selector: 'edge:selected',
-      style: {
-        'width': 3,
-        'line-color': '#0f766e',
-        'target-arrow-color': '#0f766e',
-      }
-    }
-  ], []);
-
-  /* ── render ─────────────────────────────────────────────────── */
+/* Node card rendered inside SVG foreignObject */
+function NodeCard({
+  node,
+  selected,
+  isBottleneck,
+  onMouseDown,
+}: {
+  node: CyNode;
+  selected: boolean;
+  isBottleneck: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+}) {
+  const spec = catalog[node.type];
+  const instances = node.config.instances;
   return (
-    <div className="editor-shell" onKeyDown={onKeyDown} tabIndex={0}>
-      <Sidebar
-        onDragStart={onDragStart}
-        connectionKind={connectionKind}
-        onConnectionKindChange={setConnectionKind}
-        showConnectionPicker={phase === 'request'}
-        expanded={sidebarExpanded}
-        onToggle={() => setSidebarExpanded(!sidebarExpanded)}
-      />
+    <div
+      className={`canvas-node${selected ? ' selected' : ''}${isBottleneck ? ' bottleneck' : ''}`}
+      onMouseDown={onMouseDown}
+    >
+      <div className="canvas-node-header" style={{ background: spec?.color ?? '#e5e7eb', color: spec?.textColor ?? '#111' }}>
+        <span className="canvas-node-icon">{spec?.icon ?? '?'}</span>
+        <span className="canvas-node-category">{spec?.category ?? 'unknown'}</span>
+        {isBottleneck && <span className="bottleneck-badge">⚠ bottleneck</span>}
+      </div>
+      <div className="canvas-node-body">
+        <div className="canvas-node-label">{node.label}</div>
+        {instances > 1 && (
+          <div className="canvas-node-instances">×{instances}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      <div 
-        ref={canvasRef}
-        className="reactflow-wrapper" 
-        onDrop={onDrop} 
-        onDragOver={onDragOver}
-        onPointerMove={dragState?.active ? handleHandlePointerMove : undefined}
-        onPointerUp={dragState?.active ? handleHandlePointerUp : undefined}
-      >
-        <Toolbar
-          nodeCount={nodes.length}
-          edgeCount={edges.length}
-          onClear={clearCanvas}
-          onAutoLayout={autoLayout}
-          onAnalyze={runAnalysis}
+/* ── Palette ─────────────────────────────────────────────────── */
+function Palette({
+  onDragStart,
+  collapsed,
+  onToggle,
+}: {
+  onDragStart: (type: string, e: React.DragEvent) => void;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(PALETTE_SECTIONS.map((s) => s.title))
+  );
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
+
+  const filteredSections = useMemo(() => {
+    if (!search) return PALETTE_SECTIONS;
+    const q = search.toLowerCase();
+    return PALETTE_SECTIONS.map((s) => ({
+      ...s,
+      keys: s.keys.filter((k) => {
+        const spec = catalog[k];
+        return (
+          spec?.label.toLowerCase().includes(q) ||
+          spec?.tags.some((t) => t.includes(q)) ||
+          k.includes(q)
+        );
+      }),
+    })).filter((s) => s.keys.length > 0);
+  }, [search]);
+
+  if (collapsed) {
+    return (
+      <div className="palette palette--collapsed" onClick={onToggle} title="Open component palette">
+        <div className="palette-toggle-btn">⊞</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="palette">
+      <div className="palette-header">
+        <span className="palette-title">Components</span>
+        <button className="palette-collapse-btn" onClick={onToggle} title="Collapse">◀</button>
+      </div>
+      <div className="palette-search-wrap">
+        <input
+          className="palette-search"
+          placeholder="Search components…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-
-        <CytoscapeComponent
-          elements={[]}
-          style={{ width: '100%', height: '100%' }}
-          stylesheet={cytoscapeStyle}
-          cy={handleCyInit}
-          boxSelectionEnabled={true}
-          wheelSensitivity={0.1}
-          zoomingEnabled={true}
-          panningEnabled={true}
-        />
-
-        {/* Connection handles overlay */}
-        {connectionHandles.map((handle) => (
-          <div
-            key={`${handle.nodeId}-${handle.position}`}
-            className={`node-handle ${handle.position} ${
-              hoveredHandle?.nodeId === handle.nodeId && 
-              hoveredHandle?.position === handle.position ? 'active' : ''
-            } ${dragState?.active ? 'visible' : ''}`}
-            style={{
-              position: 'absolute',
-              left: `${handle.x - 5}px`,
-              top: `${handle.y - 5}px`,
-              pointerEvents: dragState?.active ? 'none' : 'auto',
-            }}
-            onPointerEnter={() => setHoveredHandle({ nodeId: handle.nodeId, position: handle.position })}
-            onPointerLeave={() => setHoveredHandle(null)}
-            onPointerDown={(e) => handleHandlePointerDown(e, handle.nodeId, handle.position)}
-          />
-        ))}
-
-        {/* Drag preview line */}
-        {dragState?.active && canvasRef.current && cyRef.current && (() => {
-          const bounds = canvasRef.current.getBoundingClientRect();
-          const startX = dragState.startX - bounds.left;
-          const startY = dragState.startY - bounds.top;
-          
-          let endX = dragState.currentX - bounds.left;
-          let endY = dragState.currentY - bounds.top;
-          
-          // Snap to target node center if hovering
-          if (dragState.targetNodeId) {
-            const targetNode = cyRef.current.getElementById(dragState.targetNodeId);
-            if (targetNode && targetNode.length > 0) {
-              const pos = targetNode.renderedPosition();
-              endX = pos.x;
-              endY = pos.y;
-            }
-          }
-          
-          return (
-            <svg
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                pointerEvents: 'none',
-                zIndex: 100,
-              }}
+      </div>
+      <div className="palette-list">
+        {filteredSections.map((section) => (
+          <div key={section.title} className="palette-section">
+            <div
+              className="palette-section-header"
+              onClick={() => toggleSection(section.title)}
             >
-              <defs>
-                <marker
-                  id="arrowhead-preview"
-                  markerWidth="10"
-                  markerHeight="10"
-                  refX="9"
-                  refY="3"
-                  orient="auto"
-                >
-                  <polygon points="0 0, 10 3, 0 6" fill={dragState.targetNodeId ? '#0f766e' : '#94a3b8'} />
-                </marker>
-              </defs>
-              <line
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke={dragState.targetNodeId ? '#0f766e' : '#94a3b8'}
-                strokeWidth="2"
-                strokeDasharray={dragState.targetNodeId ? '0' : '5,5'}
-                markerEnd="url(#arrowhead-preview)"
-              />
-              {dragState.targetNodeId && (
-                <circle
-                  cx={endX}
-                  cy={endY}
-                  r="30"
-                  fill="none"
-                  stroke="#0f766e"
-                  strokeWidth="2"
-                  opacity="0.3"
-                />
-              )}
-            </svg>
-          );
-        })()}
+              <span>{expandedSections.has(section.title) ? '▾' : '▸'}</span>
+              {section.title}
+            </div>
+            {expandedSections.has(section.title) && (
+              <div className="palette-items">
+                {section.keys.map((key) => {
+                  const spec = catalog[key];
+                  if (!spec) return null;
+                  return (
+                    <div
+                      key={key}
+                      className="palette-item"
+                      draggable
+                      onDragStart={(e) => onDragStart(key, e)}
+                      title={spec.description}
+                    >
+                      <span
+                        className="palette-item-icon"
+                        style={{ background: spec.color, color: spec.textColor }}
+                      >
+                        {spec.icon}
+                      </span>
+                      <span className="palette-item-label">{spec.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        <AnalysisPanel result={analysis} onClose={() => setAnalysis(null)} />
+/* ── Instance Picker (cloud deployment modal) ────────────────── */
+function InstancePicker({
+  node,
+  onUpdate,
+  onClose,
+}: {
+  node: CyNode;
+  onUpdate: (updated: CyNode) => void;
+  onClose: () => void;
+}) {
+  const spec = catalog[node.type];
+  const mode: DeploymentMode = node.config.deployment ?? 'local';
+  const cloudOptions: CloudServiceOption[] = CLOUD_MAPPINGS[node.type] ?? [];
+  const hasCloud = cloudOptions.length > 0;
+  const activeProvider = node.config.cloudProvider;
+  const activeService = cloudOptions.find((o) => o.provider === activeProvider);
+  const activeInstanceType = activeService?.instanceTypes.find(
+    (t) => t.id === node.config.instanceType
+  );
 
-        {/* Right floating sidebar */}
-        {selectedNodeId && (
-          <div className="editor-right-sidebar">
-            <div className="sidebar-section">
-              <div className="sidebar-section-title">Selected Service</div>
-              {nodes.find(n => n.data.id === selectedNodeId) && (
-                <div>
-                  <div className="property-field">
-                    <label className="property-label">Service</label>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text)' }}>
-                      {nodes.find(n => n.data.id === selectedNodeId)?.data.label}
+  const PROVIDER_COLORS: Record<string, string> = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
+  const PROVIDER_LABELS: Record<string, string> = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
+
+  const updateConfig = (patch: Partial<typeof node.config>) =>
+    onUpdate({ ...node, config: { ...node.config, ...patch } });
+
+  const setMode = (m: DeploymentMode) => {
+    if (m === 'local') {
+      updateConfig({ deployment: 'local', cloudProvider: undefined, instanceType: undefined, region: undefined, customCostPerHour: undefined });
+    } else {
+      const first = cloudOptions[0];
+      const firstIt = first?.instanceTypes[0];
+      updateConfig({
+        deployment: 'cloud',
+        cloudProvider: first?.provider as CloudProvider,
+        instanceType: firstIt?.id,
+        region: first?.regions[0],
+        customCostPerHour: firstIt?.costPerHour,
+      });
+    }
+  };
+
+  const setProvider = (p: CloudProvider) => {
+    const svc = cloudOptions.find((o) => o.provider === p);
+    const firstIt = svc?.instanceTypes[0];
+    updateConfig({
+      cloudProvider: p,
+      instanceType: firstIt?.id,
+      region: svc?.regions[0],
+      customCostPerHour: firstIt?.costPerHour,
+    });
+  };
+
+  return (
+    <div
+      className="instance-picker-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="instance-picker">
+
+        {/* Header */}
+        <div className="instance-picker-header">
+          <div className="ip-title-row">
+            <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
+              {spec?.icon ?? '?'}
+            </span>
+            <div>
+              <div className="ip-node-label">{node.label}</div>
+              <div className="ip-node-type">{spec?.label ?? node.type}</div>
+            </div>
+          </div>
+          <button className="ip-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="ip-body">
+
+          {/* Mode toggle */}
+          <div className="ip-section-label">Deployment Mode</div>
+          <div className="deploy-mode-toggle">
+            <button
+              className={`deploy-mode-btn${mode === 'local' ? ' active' : ''}`}
+              onClick={() => setMode('local')}
+            >
+              🖥 Local / Test
+            </button>
+            <button
+              className={`deploy-mode-btn${mode === 'cloud' ? ' active' : ''}`}
+              onClick={() => setMode('cloud')}
+              disabled={!hasCloud}
+              title={!hasCloud ? 'No cloud mappings for this component type' : undefined}
+            >
+              ☁ Cloud
+            </button>
+          </div>
+          {!hasCloud && (
+            <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
+          )}
+
+          {mode === 'cloud' && hasCloud && (
+            <>
+              {/* Provider tabs */}
+              <div className="ip-section-label">Provider</div>
+              <div className="deploy-provider-tabs">
+                {cloudOptions.map((svc) => (
+                  <button
+                    key={svc.provider}
+                    className={`deploy-provider-tab${activeProvider === svc.provider ? ' active' : ''}`}
+                    style={{ '--provider-color': PROVIDER_COLORS[svc.provider] } as React.CSSProperties}
+                    onClick={() => setProvider(svc.provider as CloudProvider)}
+                  >
+                    {PROVIDER_LABELS[svc.provider]}
+                  </button>
+                ))}
+              </div>
+
+              {activeService && (
+                <>
+                  {/* Service card */}
+                  <div className="ip-service-card">
+                    <span
+                      className="ip-service-badge"
+                      style={{ background: PROVIDER_COLORS[activeService.provider] }}
+                    >
+                      {PROVIDER_LABELS[activeService.provider]}
+                    </span>
+                    <div className="ip-service-info">
+                      <span className="ip-service-name">{activeService.serviceName}</span>
+                      <code className="ip-tf-resource">{activeService.terraformResource}</code>
                     </div>
                   </div>
-                  <div className="property-field">
-                    <label className="property-label">Throughput (req/s)</label>
-                    <input
-                      type="number"
-                      className="property-input"
-                      value={nodes.find(n => n.data.id === selectedNodeId)?.data.throughput || 0}
-                      onChange={(e) => updateSelectedNode({ throughput: Number(e.target.value) })}
-                    />
+
+                  {/* Instance / tier */}
+                  {activeService.instanceTypes.length > 0 && (
+                    <div className="ip-section">
+                      <div className="ip-section-label">
+                        Instance Type
+                        {activeService.terraformInstanceField && (
+                          <code className="ip-tf-field">{activeService.terraformInstanceField}</code>
+                        )}
+                      </div>
+                      <select
+                        className="ip-select"
+                        value={node.config.instanceType ?? ''}
+                        onChange={(e) => {
+                          const it = activeService.instanceTypes.find((t) => t.id === e.target.value);
+                          updateConfig({ instanceType: e.target.value, customCostPerHour: it?.costPerHour });
+                        }}
+                      >
+                        {activeService.instanceTypes.map((it) => (
+                          <option key={it.id} value={it.id}>{it.label}</option>
+                        ))}
+                      </select>
+
+                      {activeInstanceType && (
+                        <div className="deploy-spec-pills" style={{ marginTop: 8 }}>
+                          {activeInstanceType.vcpu !== null && (
+                            <span className="pill">{activeInstanceType.vcpu} vCPU</span>
+                          )}
+                          {activeInstanceType.memoryGb !== null && (
+                            <span className="pill">{activeInstanceType.memoryGb} GB RAM</span>
+                          )}
+                          <span className="pill pill-cost">
+                            ${activeInstanceType.costPerHour.toFixed(
+                              activeInstanceType.costPerHour < 0.01 ? 5 : 3
+                            )}/hr
+                          </span>
+                        </div>
+                      )}
+                      {activeInstanceType?.notes && (
+                        <div className="deploy-instance-note">{activeInstanceType.notes}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Region */}
+                  <div className="ip-section">
+                    <div className="ip-section-label">Region</div>
+                    <select
+                      className="ip-select"
+                      value={node.config.region ?? activeService.regions[0]}
+                      onChange={(e) => updateConfig({ region: e.target.value })}
+                    >
+                      {activeService.regions.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="property-field">
-                    <label className="property-label">Latency (ms)</label>
-                    <input
-                      type="number"
-                      className="property-input"
-                      value={nodes.find(n => n.data.id === selectedNodeId)?.data.latency || 0}
-                      onChange={(e) => updateSelectedNode({ latency: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="property-field">
-                    <label className="property-label">Replicas</label>
-                    <input
-                      type="number"
-                      className="property-input"
-                      min="1"
-                      value={nodes.find(n => n.data.id === selectedNodeId)?.data.replicas || 1}
-                      onChange={(e) => updateSelectedNode({ replicas: Number(e.target.value) })}
-                    />
-                  </div>
-                  <button 
-                    className="action-button danger"
-                    onClick={() => deleteNode(selectedNodeId)}
-                  >
-                    Delete
-                  </button>
-                </div>
+                </>
               )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="ip-footer">
+          <button className="btn-primary" style={{ width: '100%' }} onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Node Inspector ───────────────────────────────────────────── */
+
+
+function NodeInspector({
+  node,
+  analysis,
+  onUpdate,
+  onDelete,
+  onClose,
+  onOpenPicker,
+}: {
+  node: CyNode;
+  analysis: AnalysisResult | null;
+  onUpdate: (updated: CyNode) => void;
+  onDelete: () => void;
+  onClose: () => void;
+  onOpenPicker: (id: string) => void;
+}) {
+  const spec = catalog[node.type];
+  const isBottleneck = analysis?.bottleneckNodeId === node.id;
+  const mode: DeploymentMode = node.config.deployment ?? 'local';
+  const cloudOptions = CLOUD_MAPPINGS[node.type] ?? [];
+  const hasCloud = cloudOptions.length > 0;
+  const PROVIDER_COLORS: Record<string, string> = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
+  const PROVIDER_LABELS: Record<string, string> = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
+
+  const updateConfig = (patch: Partial<typeof node.config>) =>
+    onUpdate({ ...node, config: { ...node.config, ...patch } });
+
+  return (
+    <div className="inspector">
+      <div className="inspector-header">
+        <div className="inspector-title-row">
+          <span className="inspector-icon" style={{ background: spec?.color, color: spec?.textColor }}>
+            {spec?.icon ?? '?'}
+          </span>
+          <div>
+            <div className="inspector-label-small">{spec?.category}</div>
+            <div className="inspector-type">{spec?.label}</div>
+          </div>
+        </div>
+        <button className="inspector-close" onClick={onClose}>✕</button>
+      </div>
+
+      {isBottleneck && (
+        <div className="inspector-warning">
+          ⚠ Bottleneck – lowest throughput in the critical path
+        </div>
+      )}
+
+      {/* Label */}
+      <div className="inspector-field">
+        <label>Label</label>
+        <input value={node.label} onChange={(e) => onUpdate({ ...node, label: e.target.value })} />
+      </div>
+
+      {/* Instances */}
+      <div className="inspector-field">
+        <label>Instances</label>
+        <input
+          type="number" min={1} max={100}
+          value={node.config.instances}
+          onChange={(e) => updateConfig({ instances: Number(e.target.value) || 1 })}
+        />
+      </div>
+
+      {/* ── Deployment ──────────────────────────────────────── */}
+      <div className="inspector-section-title">Deployment</div>
+      <div className="deploy-summary-row">
+        <div
+          className="deploy-summary-badge"
+          style={
+            mode === 'cloud' && node.config.cloudProvider
+              ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
+              : undefined
+          }
+        >
+          {mode === 'cloud'
+            ? `☁ ${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
+            : '🖥 Local / Test'}
+        </div>
+        {mode === 'cloud' && node.config.region && (
+          <span className="deploy-summary-region">{node.config.region}</span>
+        )}
+      </div>
+      <button
+        className="deploy-configure-btn"
+        onClick={() => onOpenPicker(node.id)}
+        disabled={!hasCloud}
+        title={!hasCloud ? 'No cloud options for this component' : 'Configure cloud deployment'}
+      >
+        ☁ Configure Deployment…
+      </button>
+
+      {/* ── Override Specs ──────────────────────────────────── */}
+      <div className="inspector-section-title">Override Specs</div>
+      <div className="inspector-field">
+        <label>Custom Latency (ms)</label>
+        <input
+          type="number" min={0}
+          placeholder={`Default: ${spec?.latencyMs.avg ?? 0} ms`}
+          value={node.config.customLatencyMs ?? ''}
+          onChange={(e) =>
+            updateConfig({ customLatencyMs: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+      <div className="inspector-field">
+        <label>Custom Throughput (rps)</label>
+        <input
+          type="number" min={0}
+          placeholder={`Default: ${formatNumber(spec?.throughputRps ?? 0)} rps`}
+          value={node.config.customThroughputRps ?? ''}
+          onChange={(e) =>
+            updateConfig({ customThroughputRps: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+      <div className="inspector-field">
+        <label>Custom Cost ($/hr)</label>
+        <input
+          type="number" min={0} step={0.001}
+          placeholder={`Default: $${spec?.costPerHour ?? 0}/hr`}
+          value={node.config.customCostPerHour ?? ''}
+          onChange={(e) =>
+            updateConfig({ customCostPerHour: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+
+      {/* ── Spec Reference ──────────────────────────────────── */}
+      {spec && (
+        <>
+          <div className="inspector-section-title">Spec Reference</div>
+          <div className="inspector-specs">
+            <div className="inspector-spec-row"><span>Avg latency</span><strong>{spec.latencyMs.avg} ms</strong></div>
+            <div className="inspector-spec-row"><span>p99 latency</span><strong>{spec.latencyMs.p99} ms</strong></div>
+            <div className="inspector-spec-row"><span>Peak throughput</span><strong>{formatNumber(spec.throughputRps)} rps</strong></div>
+            <div className="inspector-spec-row"><span>Cost/hr</span><strong>${spec.costPerHour.toFixed(3)}</strong></div>
+            <div className="inspector-spec-row"><span>Scalable</span><strong>{spec.horizontallyScalable ? '✅ Yes' : '❌ No'}</strong></div>
+          </div>
+          <div className="inspector-description">{spec.description}</div>
+        </>
+      )}
+
+      <button className="inspector-delete-btn" onClick={onDelete}>
+        🗑 Delete Node
+      </button>
+    </div>
+  );
+}
+
+
+/* ── Analysis Panel ───────────────────────────────────────────── */
+function AnalysisPanel({
+  result,
+  onClose,
+}: {
+  result: AnalysisResult;
+  onClose: () => void;
+}) {
+  return (
+    <div className="analysis-overlay">
+      <div className="analysis-panel">
+        <div className="analysis-header">
+          <h2>Architecture Analysis</h2>
+          <button className="analysis-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Key metrics */}
+        <div className="analysis-metrics">
+          <div className="metric-card metric-latency">
+            <div className="metric-value">{result.totalLatencyMs} ms</div>
+            <div className="metric-label">Avg Latency</div>
+          </div>
+          <div className="metric-card metric-p99">
+            <div className="metric-value">{result.p99LatencyMs} ms</div>
+            <div className="metric-label">p99 Latency</div>
+          </div>
+          <div className="metric-card metric-throughput">
+            <div className="metric-value">{formatNumber(result.throughputRps)}</div>
+            <div className="metric-label">Max RPS</div>
+          </div>
+          <div className="metric-card metric-users">
+            <div className="metric-value">{formatNumber(result.maxConcurrentUsers)}</div>
+            <div className="metric-label">Max Concurrent Users</div>
+          </div>
+          <div className="metric-card metric-cost">
+            <div className="metric-value">${result.costPerHour.toFixed(2)}</div>
+            <div className="metric-label">Cost / Hour</div>
+          </div>
+          <div className="metric-card metric-costmil">
+            <div className="metric-value">${result.costPerMillionRequests.toFixed(3)}</div>
+            <div className="metric-label">Cost / 1M Requests</div>
+          </div>
+        </div>
+
+        {/* Critical path */}
+        {result.criticalPath.length > 0 && (
+          <div className="analysis-section">
+            <h3>Critical Path</h3>
+            <p className="analysis-dimtext">
+              The slowest route through your architecture (determines max latency).
+            </p>
+            <div className="critical-path">
+              {result.criticalPath.map((id, i) => (
+                <React.Fragment key={id}>
+                  <span className={`cp-node${result.bottleneckNodeId === id ? ' cp-bottleneck' : ''}`}>
+                    {id}
+                    {result.bottleneckNodeId === id && ' ⚠'}
+                  </span>
+                  {i < result.criticalPath.length - 1 && (
+                    <span className="cp-arrow">→</span>
+                  )}
+                </React.Fragment>
+              ))}
             </div>
+            {result.bottleneckLabel && (
+              <div className="analysis-bottleneck-note">
+                ⚠ Bottleneck: <strong>{result.bottleneckLabel}</strong>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Context menu */}
-        {contextMenu && (
-          <div 
-            className="context-menu"
-            style={{
-              left: `${contextMenu.x}px`,
-              top: `${contextMenu.y}px`,
-            }}
-          >
-            {contextMenu.nodeId && (
-              <>
-                <button 
-                  className="context-menu-item"
-                  onClick={() => {
-                    setSelectedNodeId(contextMenu.nodeId!);
-                    setContextMenu(null);
-                  }}
-                >
-                  Properties
-                </button>
-                <button 
-                  className="context-menu-item"
-                  onClick={() => {
-                    if (contextMenu.nodeId) {
-                      const node = nodes.find(n => n.data.id === contextMenu.nodeId);
-                      if (node) {
-                        const svc = ALL_SERVICES.find(s => s.id === node.data.serviceId);
-                        if (svc && svc.instanceTypes && svc.instanceTypes.length > 0) {
-                          setReconfigNode({ nodeId: contextMenu.nodeId, service: svc });
-                        }
-                      }
-                    }
-                    setContextMenu(null);
-                  }}
-                >
-                  Change Instance
-                </button>
-                <div className="context-menu-divider"></div>
-                <button 
-                  className="context-menu-item danger"
-                  onClick={() => deleteNode(contextMenu.nodeId!)}
-                >
-                  Delete
-                </button>
-              </>
-            )}
-            {contextMenu.edgeId && (
-              <>
-                <button 
-                  className="context-menu-item"
-                  onClick={() => {
-                    if (contextMenu.edgeId) {
-                      const edge = edges.find(e => e.data.id === contextMenu.edgeId);
-                      if (edge) {
-                        setPendingConn({ source: edge.data.source, target: edge.data.target });
-                        deleteEdge(contextMenu.edgeId);
-                      }
-                    }
-                  }}
-                >
-                  Edit
-                </button>
-                <div className="context-menu-divider"></div>
-                <button 
-                  className="context-menu-item danger"
-                  onClick={() => {
-                    if (contextMenu.edgeId) {
-                      deleteEdge(contextMenu.edgeId);
-                    }
-                  }}
-                >
-                  Delete
-                </button>
-              </>
-            )}
+        {/* Distribution Gain */}
+        {result.distributionGain && (
+          <div className="analysis-section analysis-distribution">
+            <h3>🚀 Distribution Analysis – Monolith vs. Microservices</h3>
+            <div className="dist-comparison">
+              <div className="dist-col dist-current">
+                <div className="dist-col-title">Current (Monolith)</div>
+                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.currentMaxUsers)}</strong></div>
+                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.currentLatencyMs} ms</strong></div>
+                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.currentCostPerHour.toFixed(2)}</strong></div>
+              </div>
+              <div className="dist-arrow">⟹</div>
+              <div className="dist-col dist-distributed">
+                <div className="dist-col-title">Distributed (Microservices + Kafka)</div>
+                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.distributedMaxUsers)}</strong></div>
+                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.distributedLatencyMs} ms</strong></div>
+                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.distributedCostPerHour.toFixed(2)}</strong></div>
+              </div>
+            </div>
+            <p className="dist-recommendation">{result.distributionGain.recommendation}</p>
+          </div>
+        )}
+
+        {/* Cloud Cost Comparison */}
+        {(result.cloudCosts.aws.costPerHour > 0 || result.cloudCosts.gcp.costPerHour > 0) && (
+          <div className="analysis-section">
+            <h3>☁️ Cloud Cost Comparison</h3>
+            <p className="analysis-dimtext">Estimated hourly cost for this architecture on each provider.</p>
+            <div className="cloud-comparison">
+              {(['aws', 'gcp', 'azure'] as const).map((p) => {
+                const c = result.cloudCosts[p];
+                const labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
+                const colors = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
+                return (
+                  <div key={p} className="cloud-col">
+                    <div className="cloud-badge" style={{ background: colors[p] }}>{labels[p]}</div>
+                    <div className="cloud-metric">
+                      <span className="cloud-metric-value">${c.costPerHour.toFixed(2)}</span>
+                      <span className="cloud-metric-label">/ hour</span>
+                    </div>
+                    <div className="cloud-metric">
+                      <span className="cloud-metric-value">${c.costPerMillion.toFixed(3)}</span>
+                      <span className="cloud-metric-label">/ 1M req</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="analysis-dimtext" style={{ marginTop: 8 }}>
+              * Costs use catalog baselines (AWS) with GCP ≈ 12% and Azure ≈ 3% discounts applied.
+              Override individual node costs in the inspector for precise estimates.
+            </p>
+          </div>
+        )}
+
+        {/* Suggestions */}
+        {result.suggestions.length > 0 && (
+          <div className="analysis-section">
+            <h3>Suggestions</h3>
+            <ul className="analysis-suggestions">
+              {result.suggestions.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {pendingConn && (
-        <ConnectionDialog
-          defaultKind={connectionKind}
-          onConfirm={confirmConnection}
-          onCancel={() => setPendingConn(null)}
+/* ── Context Menu ─────────────────────────────────────────────── */
+function ContextMenu({
+  state,
+  onClose,
+  onDeleteNode,
+  onDeleteEdge,
+  onInspect,
+  onConfigureCloud,
+  onAddNode,
+}: {
+  state: ContextMenuState;
+  onClose: () => void;
+  onDeleteNode: (id: string) => void;
+  onDeleteEdge: (id: string) => void;
+  onInspect: (id: string) => void;
+  onConfigureCloud: (id: string) => void;
+  onAddNode: (x: number, y: number) => void;
+}) {
+  if (!state.visible) return null;
+  return (
+    <>
+      <div className="ctx-backdrop" onClick={onClose} />
+      <div className="ctx-menu" style={{ left: state.x, top: state.y }}>
+        {state.targetType === 'node' && state.targetId && (
+          <>
+            <button
+              className="ctx-item"
+              onClick={() => { onInspect(state.targetId!); onClose(); }}
+            >
+              🔍 Inspect / Edit
+            </button>
+            <button
+              className="ctx-item ctx-item-cloud"
+              onClick={() => { onConfigureCloud(state.targetId!); onClose(); }}
+            >
+              ☁ Configure Deployment
+            </button>
+            <div className="ctx-divider" />
+            <button
+              className="ctx-item ctx-danger"
+              onClick={() => { onDeleteNode(state.targetId!); onClose(); }}
+            >
+              🗑 Delete Node
+            </button>
+          </>
+        )}
+        {state.targetType === 'edge' && state.targetId && (
+          <>
+            <button
+              className="ctx-item ctx-danger"
+              onClick={() => { onDeleteEdge(state.targetId!); onClose(); }}
+            >
+              🗑 Delete Connection
+            </button>
+          </>
+        )}
+        {state.targetType === 'canvas' && (
+          <>
+            <button className="ctx-item" onClick={() => { onAddNode(state.x, state.y); onClose(); }}>
+              ＋ Add Node Here
+            </button>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Main Editor
+   ═══════════════════════════════════════════════════════════════ */
+interface EditorProps {
+  phase: Phase;
+  activeCanvas: CanvasState;
+  onCanvasChange: (nodes: CyNode[], edges: CyEdge[]) => void;
+}
+
+export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
+  /* ── local canvas state ──────────────────────────────────── */
+  const [nodes, setNodes] = useState<CyNode[]>(activeCanvas.nodes);
+  const [edges, setEdges] = useState<CyEdge[]>(activeCanvas.edges);
+
+  // sync when active canvas changes (phase switch / file switch)
+  const prevCanvasRef = useRef(activeCanvas);
+  useLayoutEffect(() => {
+    if (prevCanvasRef.current !== activeCanvas) {
+      prevCanvasRef.current = activeCanvas;
+      setNodes(activeCanvas.nodes);
+      setEdges(activeCanvas.edges);
+    }
+  }, [activeCanvas]);
+
+  // persist up to parent
+  const persist = useCallback(
+    (n: CyNode[], e: CyEdge[]) => {
+      onCanvasChange(n, e);
+    },
+    [onCanvasChange]
+  );
+
+  /* ── viewport state ──────────────────────────────────────── */
+  const [viewport, setViewport] = useState<ViewportState>({ x: 80, y: 80, scale: 1 });
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  /* ── selection ───────────────────────────────────────────── */
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
+  /* ── pan state ───────────────────────────────────────────── */
+  const panRef = useRef<{ active: boolean; startX: number; startY: number; vpX: number; vpY: number }>({
+    active: false, startX: 0, startY: 0, vpX: 0, vpY: 0,
+  });
+
+  /* ── node drag ───────────────────────────────────────────── */
+  const nodeDragRef = useRef<{ active: boolean; nodeId: string; startX: number; startY: number; nodeStartX: number; nodeStartY: number } | null>(null);
+
+  /* ── connection drag ─────────────────────────────────────── */
+  const [connectState, setConnectState] = useState<{
+    active: boolean; sourceId: string; curX: number; curY: number;
+  } | null>(null);
+
+  /* ── palette ─────────────────────────────────────────────── */
+  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+
+  /* ── context menu ────────────────────────────────────────── */
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState>({
+    visible: false, x: 0, y: 0, targetId: null, targetType: null,
+  });
+
+  /* ── analysis ────────────────────────────────────────────── */
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
+
+  // recompute analysis whenever nodes/edges change
+  const latestAnalysis = useMemo(() => analyzeCanvas({ nodes, edges }), [nodes, edges]);
+
+  /* ── helper: SVG rect ────────────────────────────────────── */
+  const getSvgRect = useCallback((): DOMRect => {
+    return svgRef.current?.getBoundingClientRect() ?? new DOMRect(0, 0, 800, 600);
+  }, []);
+
+  /* ── Keyboard shortcuts ──────────────────────────────────── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCtxMenu((c) => ({ ...c, visible: false }));
+        setConnectState(null);
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused()) {
+        if (selectedNodeId) deleteNode(selectedNodeId);
+        else if (selectedEdgeId) deleteEdge(selectedEdgeId);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, selectedEdgeId]);
+
+  function isInputFocused() {
+    const el = document.activeElement;
+    return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+  }
+
+  /* ── Delete helpers ──────────────────────────────────────── */
+  const deleteNode = useCallback((id: string) => {
+    setNodes((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      setEdges((prevE) => {
+        const nextE = prevE.filter((e) => e.source !== id && e.target !== id);
+        persist(next, nextE);
+        return nextE;
+      });
+      return next;
+    });
+    if (selectedNodeId === id) setSelectedNodeId(null);
+  }, [persist, selectedNodeId]);
+
+  const deleteEdge = useCallback((id: string) => {
+    setEdges((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      persist(nodes, next);
+      return next;
+    });
+    if (selectedEdgeId === id) setSelectedEdgeId(null);
+  }, [persist, nodes, selectedEdgeId]);
+
+  /* ── Update node ─────────────────────────────────────────── */
+  const updateNode = useCallback((updated: CyNode) => {
+    setNodes((prev) => {
+      const next = prev.map((n) => (n.id === updated.id ? updated : n));
+      persist(next, edges);
+      return next;
+    });
+  }, [persist, edges]);
+
+  /* ── Drag-drop from palette ──────────────────────────────── */
+  const [draggingType, setDraggingType] = useState<string | null>(null);
+
+  const handlePaletteDragStart = useCallback((type: string, e: React.DragEvent) => {
+    setDraggingType(type);
+    e.dataTransfer.setData('componentType', type);
+    e.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
+  const handleCanvasDrop = useCallback(
+    (e: React.DragEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('componentType') || draggingType;
+      if (!type) return;
+      const { x, y } = screenToCanvas(e.clientX, e.clientY, viewport, getSvgRect());
+      const node = buildNode(type, x - NODE_W / 2, y - NODE_H / 2);
+      setNodes((prev) => {
+        const next = [...prev, node];
+        persist(next, edges);
+        return next;
+      });
+      setSelectedNodeId(node.id);
+      setDraggingType(null);
+    },
+    [draggingType, viewport, getSvgRect, persist, edges]
+  );
+
+  /* ── Wheel: zoom ─────────────────────────────────────────── */
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      const rect = getSvgRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const delta = e.deltaY < 0 ? 1.1 : 0.9;
+      setViewport((vp) => {
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, vp.scale * delta));
+        const scaleDiff = newScale - vp.scale;
+        return {
+          scale: newScale,
+          x: vp.x - (mouseX - vp.x) * (scaleDiff / vp.scale),
+          y: vp.y - (mouseY - vp.y) * (scaleDiff / vp.scale),
+        };
+      });
+    },
+    [getSvgRect]
+  );
+
+  /* ── Mouse down on canvas background: start pan ─────────── */
+  const handleSvgMouseDown = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (e.button !== 0) return;
+      // Only pan if clicking on background (not a node / handle)
+      if ((e.target as Element).closest('.canvas-node-fo')) return;
+      panRef.current = { active: true, startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y };
+    },
+    [viewport]
+  );
+
+  /* ── Mouse move: handle pan + node drag + connection drag ── */
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      // Pan
+      if (panRef.current.active) {
+        const dx = e.clientX - panRef.current.startX;
+        const dy = e.clientY - panRef.current.startY;
+        setViewport((vp) => ({ ...vp, x: panRef.current.vpX + dx, y: panRef.current.vpY + dy }));
+        return;
+      }
+      // Node drag
+      if (nodeDragRef.current?.active) {
+        const nd = nodeDragRef.current;
+        const rect = getSvgRect();
+        const cx = (e.clientX - rect.left - viewport.x) / viewport.scale;
+        const cy = (e.clientY - rect.top - viewport.y) / viewport.scale;
+        const dx = cx - nd.startX;
+        const dy = cy - nd.startY;
+        setNodes((prev) =>
+          prev.map((n) =>
+            n.id === nd.nodeId
+              ? { ...n, x: nd.nodeStartX + dx, y: nd.nodeStartY + dy }
+              : n
+          )
+        );
+        return;
+      }
+      // Connection drag
+      if (connectState?.active) {
+        const rect = getSvgRect();
+        setConnectState((cs) =>
+          cs
+            ? {
+                ...cs,
+                curX: (e.clientX - rect.left - viewport.x) / viewport.scale,
+                curY: (e.clientY - rect.top - viewport.y) / viewport.scale,
+              }
+            : cs
+        );
+      }
+    },
+    [viewport, connectState, getSvgRect]
+  );
+
+  /* ── Mouse up ────────────────────────────────────────────── */
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      // Finish pan
+      if (panRef.current.active) {
+        panRef.current.active = false;
+        return;
+      }
+      // Finish node drag → persist
+      if (nodeDragRef.current?.active) {
+        nodeDragRef.current.active = false;
+        setNodes((prev) => {
+          persist(prev, edges);
+          return prev;
+        });
+        return;
+      }
+      // Finish connection drag
+      if (connectState?.active) {
+        // Check if dropped on a node
+        const rect = getSvgRect();
+        const cx = (e.clientX - rect.left - viewport.x) / viewport.scale;
+        const cy = (e.clientY - rect.top - viewport.y) / viewport.scale;
+        const targetNode = nodes.find(
+          (n) =>
+            cx >= n.x && cx <= n.x + n.width &&
+            cy >= n.y && cy <= n.y + n.height &&
+            n.id !== connectState.sourceId
+        );
+        if (targetNode) {
+          const newEdge = buildEdge(connectState.sourceId, targetNode.id);
+          setEdges((prev) => {
+            // No duplicate edges
+            const exists = prev.some(
+              (e) => e.source === newEdge.source && e.target === newEdge.target
+            );
+            if (exists) return prev;
+            const next = [...prev, newEdge];
+            persist(nodes, next);
+            return next;
+          });
+          setSelectedEdgeId(newEdge.id);
+        }
+        setConnectState(null);
+      }
+    },
+    [connectState, getSvgRect, nodes, edges, viewport, persist]
+  );
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  /* ── Node mouse down: start drag ─────────────────────────── */
+  const startNodeDrag = useCallback(
+    (nodeId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (e.button !== 0) return;
+      const rect = getSvgRect();
+      const cx = (e.clientX - rect.left - viewport.x) / viewport.scale;
+      const cy = (e.clientY - rect.top - viewport.y) / viewport.scale;
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      nodeDragRef.current = {
+        active: true,
+        nodeId,
+        startX: cx,
+        startY: cy,
+        nodeStartX: node.x,
+        nodeStartY: node.y,
+      };
+      setSelectedNodeId(nodeId);
+      setSelectedEdgeId(null);
+    },
+    [getSvgRect, nodes, viewport]
+  );
+
+  /* ── Handle mouse down: start connection drag ────────────── */
+  const startConnect = useCallback(
+    (nodeId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const rect = getSvgRect();
+      const cx = (e.clientX - rect.left - viewport.x) / viewport.scale;
+      const cy = (e.clientY - rect.top - viewport.y) / viewport.scale;
+      setConnectState({ active: true, sourceId: nodeId, curX: cx, curY: cy });
+    },
+    [getSvgRect, viewport]
+  );
+
+  /* ── Right-click ─────────────────────────────────────────── */
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, targetId: string | null, targetType: ContextMenuState['targetType']) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCtxMenu({ visible: true, x: e.clientX, y: e.clientY, targetId, targetType });
+    },
+    []
+  );
+
+  /* ── Reset view ──────────────────────────────────────────── */
+  const resetView = useCallback(() => {
+    if (nodes.length === 0) {
+      setViewport({ x: 80, y: 80, scale: 1 });
+      return;
+    }
+    const minX = Math.min(...nodes.map((n) => n.x));
+    const minY = Math.min(...nodes.map((n) => n.y));
+    const maxX = Math.max(...nodes.map((n) => n.x + n.width));
+    const maxY = Math.max(...nodes.map((n) => n.y + n.height));
+    const rect = getSvgRect();
+    const pad = 80;
+    const scale = Math.min(
+      (rect.width - pad * 2) / (maxX - minX || 1),
+      (rect.height - pad * 2) / (maxY - minY || 1),
+      1.2
+    );
+    setViewport({
+      scale,
+      x: rect.width / 2 - ((minX + maxX) / 2) * scale,
+      y: rect.height / 2 - ((minY + maxY) / 2) * scale,
+    });
+  }, [nodes, getSvgRect]);
+
+  /* ── Add node at screen position (from context menu) ─────── */
+  const addNodeAt = useCallback(
+    (screenX: number, screenY: number) => {
+      // open a quick-pick by defaulting to 'app_server'
+      const { x, y } = screenToCanvas(screenX, screenY, viewport, getSvgRect());
+      const node = buildNode('app_server', x - NODE_W / 2, y - NODE_H / 2);
+      setNodes((prev) => {
+        const next = [...prev, node];
+        persist(next, edges);
+        return next;
+      });
+      setSelectedNodeId(node.id);
+    },
+    [viewport, getSvgRect, persist, edges]
+  );
+
+  /* ── Run analysis ─────────────────────────────────────────── */
+  const runAnalysis = useCallback(() => {
+    setAnalysisResult(latestAnalysis);
+    setShowAnalysis(true);
+  }, [latestAnalysis]);
+
+  /* ── Render ──────────────────────────────────────────────── */
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
+
+  return (
+    <div className="editor-root">
+      {/* ── Toolbar ─────────────────────────────────────────── */}
+      <div className="editor-toolbar">
+        <div className="toolbar-left">
+          <span className="toolbar-phase-badge">
+            {phase === 'base' ? '🏗 Base Architecture' : '📋 Request Flow'}
+          </span>
+        </div>
+        <div className="toolbar-center">
+          <span className="toolbar-node-count">{nodes.length} nodes · {edges.length} edges</span>
+        </div>
+        <div className="toolbar-right">
+          <button className="toolbar-btn" onClick={resetView} title="Fit to view">
+            ⊞ Fit
+          </button>
+          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.min(v.scale * 1.2, MAX_SCALE) }))}>
+            +
+          </button>
+          <span className="toolbar-zoom">{Math.round(viewport.scale * 100)}%</span>
+          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
+            −
+          </button>
+          <button
+            className="toolbar-btn toolbar-btn-analyze"
+            onClick={runAnalysis}
+            title="Analyse this canvas"
+          >
+            📊 Analyse
+          </button>
+        </div>
+      </div>
+
+      {/* ── Canvas area ─────────────────────────────────────── */}
+      <div className="editor-canvas-wrap">
+        {/* Floating palette */}
+        <Palette
+          onDragStart={handlePaletteDragStart}
+          collapsed={paletteCollapsed}
+          onToggle={() => setPaletteCollapsed((c) => !c)}
         />
+
+        {/* SVG Canvas */}
+        <svg
+          ref={svgRef}
+          className="editor-svg"
+          onWheel={handleWheel}
+          onMouseDown={handleSvgMouseDown}
+          onDrop={handleCanvasDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onContextMenu={(e) => handleContextMenu(e, null, 'canvas')}
+          style={{ cursor: panRef.current.active ? 'grabbing' : 'default' }}
+        >
+          {/* Grid pattern */}
+          <defs>
+            <pattern id="grid" width={40 * viewport.scale} height={40 * viewport.scale} x={viewport.x % (40 * viewport.scale)} y={viewport.y % (40 * viewport.scale)} patternUnits="userSpaceOnUse">
+              <path d={`M ${40 * viewport.scale} 0 L 0 0 0 ${40 * viewport.scale}`} fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
+            </pattern>
+            {/* Arrow marker */}
+            <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+            </marker>
+            <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#0f766e" />
+            </marker>
+            <marker id="arrow-selected" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+            </marker>
+          </defs>
+
+          <rect width="100%" height="100%" fill="url(#grid)" />
+
+          <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.scale})`}>
+            {/* Edges */}
+            {edges.map((edge) => {
+              const src = nodes.find((n) => n.id === edge.source);
+              const tgt = nodes.find((n) => n.id === edge.target);
+              if (!src || !tgt) return null;
+              const d = edgePath(src, tgt);
+              const isSelected = edge.id === selectedEdgeId;
+              const isActive = edge.active;
+              const mid = nodeCenter(src);
+              const midTgt = nodeCenter(tgt);
+              const labelX = (mid.x + midTgt.x) / 2;
+              const labelY = (mid.y + midTgt.y) / 2 - 10;
+              const markerId = isSelected ? 'arrow-selected' : isActive ? 'arrow-active' : 'arrow';
+              return (
+                <g key={edge.id}>
+                  {/* Hit area */}
+                  <path
+                    d={d}
+                    stroke="transparent"
+                    strokeWidth={20}
+                    fill="none"
+                    onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
+                    onContextMenu={(e) => handleContextMenu(e, edge.id, 'edge')}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <path
+                    d={d}
+                    stroke={isSelected ? '#3b82f6' : isActive ? '#0f766e' : '#9ca3af'}
+                    strokeWidth={isSelected ? 2.5 : 2}
+                    strokeDasharray={isActive ? undefined : undefined}
+                    fill="none"
+                    markerEnd={`url(#${markerId})`}
+                    pointerEvents="none"
+                  />
+                  {edge.label && (
+                    <text x={labelX} y={labelY} textAnchor="middle" fontSize={11} fill="#6b7280" style={{ pointerEvents: 'none' }}>
+                      {edge.label}
+                    </text>
+                  )}
+                  {edge.protocol && (
+                    <text x={labelX} y={labelY + (edge.label ? 14 : 0)} textAnchor="middle" fontSize={10} fill="#9ca3af" style={{ pointerEvents: 'none' }}>
+                      {edge.protocol}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Live connection drag line */}
+            {connectState?.active && (() => {
+              const src = nodes.find((n) => n.id === connectState.sourceId);
+              if (!src) return null;
+              const c = nodeCenter(src);
+              return (
+                <line
+                  x1={c.x} y1={c.y}
+                  x2={connectState.curX} y2={connectState.curY}
+                  stroke="#0f766e" strokeWidth={2} strokeDasharray="6 3"
+                  markerEnd="url(#arrow-active)"
+                  pointerEvents="none"
+                />
+              );
+            })()}
+
+            {/* Nodes */}
+            {nodes.map((node) => {
+              const isSelected = node.id === selectedNodeId;
+              const isBottleneck = latestAnalysis?.bottleneckNodeId === node.id;
+              const handles = handlePositions(node);
+              const showHandles = isSelected || connectState?.active;
+
+              return (
+                <g key={node.id}>
+                  {/* Node foreignObject – HTML inside SVG */}
+                  <foreignObject
+                    x={node.x}
+                    y={node.y}
+                    width={node.width}
+                    height={node.height}
+                    className="canvas-node-fo"
+                    onContextMenu={(e) => handleContextMenu(e as unknown as React.MouseEvent, node.id, 'node')}
+                  >
+                    <NodeCard
+                      node={node}
+                      selected={isSelected}
+                      isBottleneck={isBottleneck}
+                      onMouseDown={(e) => startNodeDrag(node.id, e)}
+                    />
+                  </foreignObject>
+
+                  {/* Connection handles */}
+                  {Object.entries(handles).map(([pos, { x, y }]) => (
+                    <circle
+                      key={pos}
+                      cx={x}
+                      cy={y}
+                      r={HANDLE_R}
+                      className={`conn-handle ${showHandles ? 'conn-handle--visible' : ''}`}
+                      onMouseDown={(e) => startConnect(node.id, e)}
+                    />
+                  ))}
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+
+        {/* Node Inspector floating right panel */}
+        {selectedNode && (
+          <NodeInspector
+            node={selectedNode}
+            analysis={latestAnalysis}
+            onUpdate={updateNode}
+            onDelete={() => deleteNode(selectedNode.id)}
+            onClose={() => setSelectedNodeId(null)}
+            onOpenPicker={(id) => setInstancePickerNodeId(id)}
+          />
+        )}
+      </div>
+
+      {/* Context Menu */}
+      <ContextMenu
+        state={ctxMenu}
+        onClose={() => setCtxMenu((c) => ({ ...c, visible: false }))}
+        onDeleteNode={deleteNode}
+        onDeleteEdge={deleteEdge}
+        onInspect={(id) => setSelectedNodeId(id)}
+        onConfigureCloud={(id) => setInstancePickerNodeId(id)}
+        onAddNode={addNodeAt}
+      />
+
+      {/* Analysis Panel */}
+      {showAnalysis && analysisResult && (
+        <AnalysisPanel result={analysisResult} onClose={() => setShowAnalysis(false)} />
       )}
 
-      {pendingDrop && (
-        <InstancePicker
-          service={pendingDrop.service}
-          onConfirm={confirmInstanceDrop}
-          onCancel={() => setPendingDrop(null)}
-        />
-      )}
-
-      {reconfigNode && (
-        <InstancePicker
-          service={reconfigNode.service}
-          onConfirm={confirmReconfig}
-          onCancel={() => setReconfigNode(null)}
-        />
-      )}
+      {/* Instance Picker modal */}
+      {instancePickerNodeId && (() => {
+        const pickerNode = nodes.find((n) => n.id === instancePickerNodeId);
+        if (!pickerNode) return null;
+        return (
+          <InstancePicker
+            node={pickerNode}
+            onUpdate={updateNode}
+            onClose={() => setInstancePickerNodeId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
