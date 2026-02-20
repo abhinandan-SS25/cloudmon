@@ -260,7 +260,7 @@ body {
 .inspector {
   position: absolute; right: 16px; top: 16px; width: 260px;
   background: var(--surface); border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 20;
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 250;
   display: flex; flex-direction: column;
   max-height: calc(100vh - 200px); overflow-y: auto; scrollbar-width: thin;
 }
@@ -847,30 +847,35 @@ body {
 .cloud-metric-label { font-size: 0.7rem; color: var(--text-dim); }
 
 /* ══════════════════════════════════════════════════════════════
-   INSTANCE PICKER MODAL
+   INSTANCE PICKER SIDE PANEL
    ══════════════════════════════════════════════════════════════ */
 
 .instance-picker-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 400;
+  /* No longer blocking the entire page */
+  pointer-events: none;
 }
 
 .instance-picker {
+  position: fixed;
+  right: 300px;
+  top: 16px;
   background: var(--surface);
-  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  width: 440px;
-  max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 80px);
+  width: 380px;
+  max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  z-index: 260;
+  pointer-events: auto;
+  animation: slideInFromRight 0.2s ease;
+}
+
+@keyframes slideInFromRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 /* Header */

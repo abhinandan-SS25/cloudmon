@@ -260,14 +260,9 @@ function InstancePicker({
   };
 
   return (
-    <div
-      className="instance-picker-overlay"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="instance-picker">
-
-        {/* Header */}
-        <div className="instance-picker-header">
+    <div className="instance-picker">
+      {/* Header */}
+      <div className="instance-picker-header">
           <div className="ip-title-row">
             <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
               {spec?.icon ?? '?'}
@@ -302,6 +297,58 @@ function InstancePicker({
           </div>
           {!hasCloud && (
             <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
+          )}
+
+          {mode === 'local' && (
+            <>
+              {/* Local Configuration / Override Specs */}
+              <div className="ip-section-label">Override Default Specs</div>
+              
+              <div className="ip-section">
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
+                  Custom Latency (ms)
+                </label>
+                <input
+                  className="ip-select"
+                  type="number" min={0}
+                  placeholder={`Default: ${spec?.latencyMs.avg ?? 0} ms`}
+                  value={node.config.customLatencyMs ?? ''}
+                  onChange={(e) =>
+                    updateConfig({ customLatencyMs: e.target.value === '' ? undefined : Number(e.target.value) })
+                  }
+                />
+              </div>
+
+              <div className="ip-section">
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
+                  Custom Throughput (rps)
+                </label>
+                <input
+                  className="ip-select"
+                  type="number" min={0}
+                  placeholder={`Default: ${formatNumber(spec?.throughputRps ?? 0)} rps`}
+                  value={node.config.customThroughputRps ?? ''}
+                  onChange={(e) =>
+                    updateConfig({ customThroughputRps: e.target.value === '' ? undefined : Number(e.target.value) })
+                  }
+                />
+              </div>
+
+              <div className="ip-section">
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
+                  Custom Cost ($/hr)
+                </label>
+                <input
+                  className="ip-select"
+                  type="number" min={0} step={0.001}
+                  placeholder={`Default: $${spec?.costPerHour ?? 0}/hr`}
+                  value={node.config.customCostPerHour ?? ''}
+                  onChange={(e) =>
+                    updateConfig({ customCostPerHour: e.target.value === '' ? undefined : Number(e.target.value) })
+                  }
+                />
+              </div>
+            </>
           )}
 
           {mode === 'cloud' && hasCloud && (
@@ -405,7 +452,6 @@ function InstancePicker({
             Done
           </button>
         </div>
-      </div>
     </div>
   );
 }
@@ -498,47 +544,10 @@ function NodeInspector({
       <button
         className="deploy-configure-btn"
         onClick={() => onOpenPicker(node.id)}
-        disabled={!hasCloud}
-        title={!hasCloud ? 'No cloud options for this component' : 'Configure cloud deployment'}
+        title={mode === 'cloud' ? 'Configure cloud deployment' : 'Configure local settings'}
       >
-        ☁ Configure Deployment…
+        {mode === 'cloud' ? '☁ Configure Deployment…' : '⚙ Configure…'}
       </button>
-
-      {/* ── Override Specs ──────────────────────────────────── */}
-      <div className="inspector-section-title">Override Specs</div>
-      <div className="inspector-field">
-        <label>Custom Latency (ms)</label>
-        <input
-          type="number" min={0}
-          placeholder={`Default: ${spec?.latencyMs.avg ?? 0} ms`}
-          value={node.config.customLatencyMs ?? ''}
-          onChange={(e) =>
-            updateConfig({ customLatencyMs: e.target.value === '' ? undefined : Number(e.target.value) })
-          }
-        />
-      </div>
-      <div className="inspector-field">
-        <label>Custom Throughput (rps)</label>
-        <input
-          type="number" min={0}
-          placeholder={`Default: ${formatNumber(spec?.throughputRps ?? 0)} rps`}
-          value={node.config.customThroughputRps ?? ''}
-          onChange={(e) =>
-            updateConfig({ customThroughputRps: e.target.value === '' ? undefined : Number(e.target.value) })
-          }
-        />
-      </div>
-      <div className="inspector-field">
-        <label>Custom Cost ($/hr)</label>
-        <input
-          type="number" min={0} step={0.001}
-          placeholder={`Default: $${spec?.costPerHour ?? 0}/hr`}
-          value={node.config.customCostPerHour ?? ''}
-          onChange={(e) =>
-            updateConfig({ customCostPerHour: e.target.value === '' ? undefined : Number(e.target.value) })
-          }
-        />
-      </div>
 
       {/* ── Spec Reference ──────────────────────────────────── */}
       {spec && (
