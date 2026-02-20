@@ -102,6 +102,8 @@ function App() {
   );
   const [phase, setPhase] = useState<Phase>('base');
   const [view, setView] = useState<View>('landing');
+  const [canvasSearch, setCanvasSearch] = useState<string>('');
+  const [stageOpen, setStageOpen] = useState<boolean>(true);
 
   const activeProject = useMemo(
     () => projects.find((p) => p.id === activeProjectId) || projects[0],
@@ -325,54 +327,100 @@ function App() {
 
         {(view === 'project' || view === 'request') && activeProject && (
           <div className="page editor-page">
-            {/* Top Navigation Bar */}
-            <div className="editor-nav-bar">
-              <div className="nav-tabs">
-                <button
-                  className={`nav-tab ${phase === 'base' ? 'active' : ''}`}
-                  onClick={() => {
-                    setPhase('base');
-                    setView('project');
-                  }}
-                >
-                  Base Architecture
-                </button>
+            <Editor
+              key={phase === 'base' ? 'base' : activeRequest?.id ?? 'base'}
+              phase={phase}
+              activeCanvas={activeCanvas}
+              onCanvasChange={saveCanvas}
+            />
 
-                {activeProject.requests.map((req: RequestFile) => (
-                  <button
-                    key={req.id}
-                    className={`nav-tab ${req.id === activeRequest?.id ? 'active' : ''}`}
-                    onClick={() => openRequest(activeProject.id, req.id)}
-                  >
-                    {req.name}
-                  </button>
-                ))}
-
-                <button className="nav-tab-add" onClick={addRequest}>
-                  + New Request
-                </button>
-              </div>
-              {phase === 'request' && activeRequest && (
-                <div className="request-info">
-                  <input
-                    className="request-name-input"
-                    value={activeRequest.name}
-                    onChange={(e) => renameRequest(e.target.value)}
-                    placeholder="Request name"
-                  />
-                  <div className="request-actions">
-                    <button className="btn-secondary" onClick={duplicateRequest}>
-                      Duplicate
-                    </button>
-                    <button className="btn-secondary" onClick={copyBaseToRequest}>
-                      Copy Base
-                    </button>
+            {/* Floating Stage Manager – bottom right */}
+            <div className={`stage-shelf ${stageOpen ? 'open' : ''}`}>
+              {/* Collapsed peek stack (hidden when open, shows as stacked cards) */}
+              {!stageOpen && (
+                <div className="stage-shelf-stack" onClick={() => setStageOpen(true)}>
+                  <div className="stage-stack-ghost stage-stack-ghost--2" />
+                  <div className="stage-stack-ghost stage-stack-ghost--1" />
+                  <div className="stage-stack-top">
+                    <span className="stage-active-dot" />
+                    <span className="stage-stack-label">
+                      {phase === 'base' ? 'Base Architecture' : (activeRequest?.name ?? 'Base Architecture')}
+                    </span>
+                    <span className="stage-stack-count">{1 + activeProject.requests.length}</span>
                   </div>
                 </div>
               )}
-            </div>
 
-            <Editor phase={phase} activeCanvas={activeCanvas} onCanvasChange={saveCanvas} />
+              {/* Expanded panel */}
+              {stageOpen && (
+                <div className="stage-shelf-panel">
+                  <div className="stage-shelf-header">
+                    <input
+                      type="text"
+                      className="stage-shelf-search"
+                      placeholder="Search..."
+                      value={canvasSearch}
+                      onChange={(e) => setCanvasSearch(e.target.value)}
+                    />
+                    <button className="stage-shelf-add" onClick={addRequest} title="New Request">+</button>
+                    <button className="stage-shelf-close" onClick={() => setStageOpen(false)} title="Collapse">╌</button>
+                  </div>
+
+                  <div className="stage-shelf-list">
+                    {/* Base Architecture file card */}
+                    {(!canvasSearch || 'base architecture'.includes(canvasSearch.toLowerCase())) && (
+                      <div
+                        className={`stage-file-card ${phase === 'base' ? 'active' : ''}`}
+                        onClick={() => { setPhase('base'); setView('project'); }}
+                      >
+                        <div className="stage-file-tab" />
+                        <div className="stage-file-body">
+                          <span className="stage-file-icon">🏗️</span>
+                          <div className="stage-file-info">
+                            <div className="stage-file-name">Base Architecture</div>
+                            <div className="stage-file-meta">{activeProject.base.nodes.length} nodes · {activeProject.base.edges.length} edges</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Request file cards */}
+                    {activeProject.requests
+                      .filter((req: RequestFile) =>
+                        !canvasSearch || req.name.toLowerCase().includes(canvasSearch.toLowerCase())
+                      )
+                      .map((req: RequestFile) => (
+                        <div
+                          key={req.id}
+                          className={`stage-file-card ${req.id === activeRequest?.id && phase === 'request' ? 'active' : ''}`}
+                          onClick={() => openRequest(activeProject.id, req.id)}
+                        >
+                          <div className="stage-file-tab" />
+                          <div className="stage-file-body">
+                            <span className="stage-file-icon">📋</span>
+                            <div className="stage-file-info">
+                              <input
+                                className="stage-file-name-input"
+                                value={req.name}
+                                onChange={(e) => { e.stopPropagation(); renameRequest(e.target.value); }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div className="stage-file-meta">{req.canvas.nodes.length} nodes · {req.canvas.edges.length} edges</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  {phase === 'request' && activeRequest && (
+                    <div className="stage-shelf-actions">
+                      <button className="btn-secondary" onClick={duplicateRequest}>Duplicate</button>
+                      <button className="btn-secondary" onClick={copyBaseToRequest}>Copy Base</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
