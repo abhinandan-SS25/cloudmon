@@ -207,7 +207,7 @@ export default function ProjectEditorPage() {
               <input
                 type="text"
                 className="stage-shelf-search"
-                placeholder="Search..."
+                placeholder="Search…"
                 value={canvasSearch}
                 onChange={(e) => setCanvasSearch(e.target.value)}
               />
@@ -215,92 +215,73 @@ export default function ProjectEditorPage() {
                 className="stage-shelf-add"
                 title="New Request"
                 onClick={() => handleAddRequest()}
-              >
-                +
-              </button>
+              >+</button>
               <button
                 className="stage-shelf-add"
                 title="New Folder"
                 onClick={() => handleAddFolder()}
-              >
-                📁
-              </button>
+              >📁</button>
               <button
                 className="stage-shelf-close"
                 title="Collapse"
                 onClick={() => setStageOpen(false)}
-              >
-                ╌
-              </button>
+              >╌</button>
             </div>
 
-            {/* File list */}
-            <div className="stage-shelf-list">
-              {/* Base Architecture – always first */}
+            {/* File-system tree */}
+            <div className="fs-tree">
+              {/* Root: Base Architecture */}
               {(!canvasSearch ||
                 'base architecture'.includes(canvasSearch.toLowerCase())) && (
                 <div
-                  className={`stage-file-card ${phase === 'base' ? 'active' : ''}`}
+                  className={`fs-row fs-root${phase === 'base' ? ' active' : ''}`}
+                  style={{ paddingLeft: '8px' }}
                   onClick={() => navigate(`/projects/${projectId}`)}
                 >
-                  <div className="stage-file-tab" />
-                  <div className="stage-file-body">
-                    <span className="stage-file-icon">🏗️</span>
-                    <div className="stage-file-info">
-                      <div className="stage-file-name">Base Architecture</div>
-                      <div className="stage-file-meta">
-                        {project.base.nodes.length}n · {project.base.edges.length}e
-                      </div>
-                    </div>
-                  </div>
+                  <span className="fs-chevron">▾</span>
+                  <span className="fs-icon">🏗</span>
+                  <span className="fs-name">Base Architecture</span>
+                  <span className="fs-meta">
+                    {project.base.nodes.length}n·{project.base.edges.length}e
+                  </span>
                 </div>
               )}
 
-              {/* Tree or flat search results */}
+              {/* Children: flat search OR full tree */}
               {filteredLeaves ? (
-                // Flat search mode
                 filteredLeaves.map((req) => (
                   <div
                     key={req.id}
-                    className={`stage-file-card ${
-                      req.id === requestId && phase === 'request' ? 'active' : ''
-                    }`}
+                    className={`fs-row${req.id === requestId && phase === 'request' ? ' active' : ''}`}
+                    style={{ paddingLeft: '22px' }}
                     onClick={() => handleOpenRequest(req.id)}
                   >
-                    <div className="stage-file-tab" />
-                    <div className="stage-file-body">
-                      <span className="stage-file-icon">📋</span>
-                      <div className="stage-file-info">
-                        <input
-                          className="stage-file-name-input"
-                          value={req.name}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handleRename(req.id, e.target.value);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="stage-file-meta">
-                          {req.canvas.nodes.length}n · {req.canvas.edges.length}e
-                        </div>
-                      </div>
+                    <span className="fs-chevron" />
+                    <span className="fs-icon">📄</span>
+                    <input
+                      className="fs-name-input"
+                      value={req.name}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleRename(req.id, e.target.value);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span className="fs-meta">
+                      {req.canvas.nodes.length}n·{req.canvas.edges.length}e
+                    </span>
+                    <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="tree-delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(req.id);
-                        }}
-                      >
-                        ✕
-                      </button>
+                        className="fs-action-btn danger"
+                        onClick={() => handleDelete(req.id)}
+                      >✕</button>
                     </div>
                   </div>
                 ))
               ) : (
-                // Full tree mode
                 <FileTree
                   items={project.requests}
-                  depth={0}
+                  depth={1}
                   activeRequestId={requestId ?? ''}
                   phase={phase}
                   onOpen={handleOpenRequest}

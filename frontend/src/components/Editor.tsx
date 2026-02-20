@@ -11,7 +11,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import catalog, { PALETTE_SECTIONS } from '../data/componentCatalog';
+import catalog from '../data/componentCatalog';
 import { CLOUD_MAPPINGS } from '../data/cloudInstanceTypes';
 import type { CloudServiceOption } from '../data/cloudInstanceTypes';
 import { analyzeCanvas } from '../utils/analysisEngine';
@@ -97,110 +97,6 @@ function NodeCard({
         {instances > 1 && (
           <div className="canvas-node-instances">×{instances}</div>
         )}
-      </div>
-    </div>
-  );
-}
-
-/* ── Palette ─────────────────────────────────────────────────── */
-function Palette({
-  onDragStart,
-  collapsed,
-  onToggle,
-}: {
-  onDragStart: (type: string, e: React.DragEvent) => void;
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(PALETTE_SECTIONS.map((s) => s.title))
-  );
-
-  const toggleSection = (title: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) next.delete(title);
-      else next.add(title);
-      return next;
-    });
-  };
-
-  const filteredSections = useMemo(() => {
-    if (!search) return PALETTE_SECTIONS;
-    const q = search.toLowerCase();
-    return PALETTE_SECTIONS.map((s) => ({
-      ...s,
-      keys: s.keys.filter((k) => {
-        const spec = catalog[k];
-        return (
-          spec?.label.toLowerCase().includes(q) ||
-          spec?.tags.some((t) => t.includes(q)) ||
-          k.includes(q)
-        );
-      }),
-    })).filter((s) => s.keys.length > 0);
-  }, [search]);
-
-  if (collapsed) {
-    return (
-      <div className="palette palette--collapsed" onClick={onToggle} title="Open component palette">
-        <div className="palette-toggle-btn">⊞</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="palette">
-      <div className="palette-header">
-        <span className="palette-title">Components</span>
-        <button className="palette-collapse-btn" onClick={onToggle} title="Collapse">◀</button>
-      </div>
-      <div className="palette-search-wrap">
-        <input
-          className="palette-search"
-          placeholder="Search components…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      <div className="palette-list">
-        {filteredSections.map((section) => (
-          <div key={section.title} className="palette-section">
-            <div
-              className="palette-section-header"
-              onClick={() => toggleSection(section.title)}
-            >
-              <span>{expandedSections.has(section.title) ? '▾' : '▸'}</span>
-              {section.title}
-            </div>
-            {expandedSections.has(section.title) && (
-              <div className="palette-items">
-                {section.keys.map((key) => {
-                  const spec = catalog[key];
-                  if (!spec) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="palette-item"
-                      draggable
-                      onDragStart={(e) => onDragStart(key, e)}
-                      title={spec.description}
-                    >
-                      <span
-                        className="palette-item-icon"
-                        style={{ background: spec.color, color: spec.textColor }}
-                      >
-                        {spec.icon}
-                      </span>
-                      <span className="palette-item-label">{spec.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -836,9 +732,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     active: boolean; sourceId: string; curX: number; curY: number;
   } | null>(null);
 
-  /* ── palette ─────────────────────────────────────────────── */
-  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
-
   /* ── context menu ────────────────────────────────────────── */
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState>({
     visible: false, x: 0, y: 0, targetId: null, targetType: null,
@@ -912,19 +805,11 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     });
   }, [persist, edges]);
 
-  /* ── Drag-drop from palette ──────────────────────────────── */
-  const [draggingType, setDraggingType] = useState<string | null>(null);
-
-  const handlePaletteDragStart = useCallback((type: string, e: React.DragEvent) => {
-    setDraggingType(type);
-    e.dataTransfer.setData('componentType', type);
-    e.dataTransfer.effectAllowed = 'copy';
-  }, []);
-
+  /* ── Drag-drop from ribbon palette ──────────────────────── */
   const handleCanvasDrop = useCallback(
     (e: React.DragEvent<SVGSVGElement>) => {
       e.preventDefault();
-      const type = e.dataTransfer.getData('componentType') || draggingType;
+      const type = e.dataTransfer.getData('componentType');
       if (!type) return;
       const { x, y } = screenToCanvas(e.clientX, e.clientY, viewport, getSvgRect());
       const node = buildNode(type, x - NODE_W / 2, y - NODE_H / 2);
@@ -934,9 +819,8 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
         return next;
       });
       setSelectedNodeId(node.id);
-      setDraggingType(null);
     },
-    [draggingType, viewport, getSvgRect, persist, edges]
+    [viewport, getSvgRect, persist, edges]
   );
 
   /* ── Wheel: zoom ─────────────────────────────────────────── */
@@ -1224,13 +1108,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
       {/* ── Canvas area ─────────────────────────────────────── */}
       <div className="editor-canvas-wrap">
-        {/* Floating palette */}
-        <Palette
-          onDragStart={handlePaletteDragStart}
-          collapsed={paletteCollapsed}
-          onToggle={() => setPaletteCollapsed((c) => !c)}
-        />
-
         {/* SVG Canvas */}
         <svg
           ref={svgRef}

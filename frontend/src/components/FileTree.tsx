@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   FileTree.tsx – Recursive request file-tree component
+   FileTree.tsx – Filesystem-style request tree
    ═══════════════════════════════════════════════════════════════ */
 import React from 'react';
 import { Phase, RequestTreeItem } from '../types';
@@ -29,114 +29,95 @@ export function FileTree({
   onAddRequest,
   onAddFolder,
 }: FileTreeProps) {
+  const indent = 8 + depth * 14;
+
   return (
     <>
       {items.map((item) => {
         if (item.kind === 'folder') {
           return (
-            <div
-              key={item.id}
-              className="tree-folder"
-              style={{ '--tree-depth': depth } as React.CSSProperties}
-            >
-              <div className="tree-folder-header">
-                <button className="tree-chevron" onClick={() => onToggle(item.id)}>
-                  {item.expanded ? '▾' : '▸'}
-                </button>
-                <span className="tree-folder-icon">📁</span>
+            <div key={item.id}>
+              {/* Folder row */}
+              <div
+                className="fs-row"
+                style={{ paddingLeft: `${indent}px` }}
+                onClick={() => onToggle(item.id)}
+              >
+                <span className="fs-chevron">{item.expanded ? '▾' : '▸'}</span>
+                <span className="fs-icon">📁</span>
                 <input
-                  className="tree-name-input"
+                  className="fs-name-input"
                   value={item.name}
                   onChange={(e) => onRename(item.id, e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <div className="tree-item-actions">
+                <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
                   <button
-                    title="Add request inside"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddRequest(item.id);
-                    }}
-                  >
-                    +
-                  </button>
+                    className="fs-action-btn"
+                    title="New request"
+                    onClick={() => onAddRequest(item.id)}
+                  >+</button>
                   <button
-                    title="Add sub-folder"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddFolder(item.id);
-                    }}
-                  >
-                    📁
-                  </button>
+                    className="fs-action-btn"
+                    title="New folder"
+                    onClick={() => onAddFolder(item.id)}
+                  >📁</button>
                   <button
+                    className="fs-action-btn danger"
                     title="Delete folder"
-                    className="tree-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(item.id);
-                    }}
-                  >
-                    ✕
-                  </button>
+                    onClick={() => onDelete(item.id)}
+                  >✕</button>
                 </div>
               </div>
+
+              {/* Children */}
               {item.expanded && (
-                <div className="tree-folder-children">
-                  <FileTree
-                    items={item.children}
-                    depth={depth + 1}
-                    activeRequestId={activeRequestId}
-                    phase={phase}
-                    onOpen={onOpen}
-                    onRename={onRename}
-                    onDelete={onDelete}
-                    onToggle={onToggle}
-                    onAddRequest={onAddRequest}
-                    onAddFolder={onAddFolder}
-                  />
-                </div>
+                <FileTree
+                  items={item.children}
+                  depth={depth + 1}
+                  activeRequestId={activeRequestId}
+                  phase={phase}
+                  onOpen={onOpen}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onToggle={onToggle}
+                  onAddRequest={onAddRequest}
+                  onAddFolder={onAddFolder}
+                />
               )}
             </div>
           );
         }
 
-        // leaf request
+        // Leaf request file
         const isActive = item.id === activeRequestId && phase === 'request';
         return (
           <div
             key={item.id}
-            className={`stage-file-card ${isActive ? 'active' : ''}`}
-            style={{ '--tree-depth': depth } as React.CSSProperties}
+            className={`fs-row${isActive ? ' active' : ''}`}
+            style={{ paddingLeft: `${indent}px` }}
             onClick={() => onOpen(item.id)}
           >
-            <div className="stage-file-tab" />
-            <div className="stage-file-body">
-              <span className="stage-file-icon">📋</span>
-              <div className="stage-file-info">
-                <input
-                  className="stage-file-name-input"
-                  value={item.name}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onRename(item.id, e.target.value);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div className="stage-file-meta">
-                  {item.canvas.nodes.length}n · {item.canvas.edges.length}e
-                </div>
-              </div>
+            <span className="fs-chevron" />
+            <span className="fs-icon">📄</span>
+            <input
+              className="fs-name-input"
+              value={item.name}
+              onChange={(e) => {
+                e.stopPropagation();
+                onRename(item.id, e.target.value);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="fs-meta">
+              {item.canvas.nodes.length}n·{item.canvas.edges.length}e
+            </span>
+            <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
               <button
-                className="tree-delete"
+                className="fs-action-btn danger"
                 title="Delete request"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(item.id);
-                }}
-              >
-                ✕
-              </button>
+                onClick={() => onDelete(item.id)}
+              >✕</button>
             </div>
           </div>
         );
@@ -144,3 +125,4 @@ export function FileTree({
     </>
   );
 }
+

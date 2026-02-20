@@ -8,12 +8,13 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 // @ts-ignore
 import './App.css';
 
+import { PaletteRibbon } from './components/PaletteRibbon';
 import { ProjectsProvider, useProjects } from './context/ProjectsContext';
 import LandingPage from './pages/LandingPage';
 import ProjectEditorPage from './pages/ProjectEditorPage';
 import ProjectsPage from './pages/ProjectsPage';
 
-/* ── Header ───────────────────────────────────────────────────── */
+/* ── Header + Ribbon wrap ─────────────────────────────────────── */
 function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,25 +29,33 @@ function AppHeader() {
   const isProjects =
     location.pathname === '/projects' || location.pathname === '/projects/';
 
+  // Show the ribbon on any /projects/:id route (editor pages)
+  const isEditor =
+    /^\/projects\/[^/]+/.test(location.pathname);
+
   return (
-    <header className="app-header">
-      <div className="logo">
-        <Link to="/" className="logo-link">CloudMon</Link>
-      </div>
-      <nav className="app-nav">
-        <Link className={`nav-link ${isLanding ? 'active' : ''}`} to="/">
-          Home
-        </Link>
-        <Link className={`nav-link ${isProjects ? 'active' : ''}`} to="/projects">
-          Projects
-        </Link>
-      </nav>
-      <div className="header-actions">
-        <button className="btn-primary" onClick={handleNewProject}>
-          New Project
-        </button>
-      </div>
-    </header>
+    <div className="app-header-wrap">
+      <header className="app-header">
+        <div className="logo">
+          <Link to="/" className="logo-link">CloudMon</Link>
+        </div>
+        <nav className="app-nav">
+          <Link className={`nav-link ${isLanding ? 'active' : ''}`} to="/">
+            Home
+          </Link>
+          <Link className={`nav-link ${isProjects ? 'active' : ''}`} to="/projects">
+            Projects
+          </Link>
+        </nav>
+        <div className="header-actions">
+          <button className="btn-primary" onClick={handleNewProject}>
+            New Project
+          </button>
+        </div>
+      </header>
+
+      {isEditor && <PaletteRibbon />}
+    </div>
   );
 }
 
