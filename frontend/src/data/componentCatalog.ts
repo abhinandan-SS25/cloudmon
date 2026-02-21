@@ -795,7 +795,7 @@ export const PALETTE_SECTIONS: Array<{
     ],
   },
   {
-    title: 'Data',
+    title: 'Databases',
     keys: [
       'postgres',
       'mysql',
@@ -814,27 +814,19 @@ export const PALETTE_SECTIONS: Array<{
     keys: ['object_storage', 'block_storage', 'nfs'],
   },
   {
+    // Messaging, queues, and streaming brokers together
     title: 'Messaging',
-    keys: ['message_queue'],
+    keys: ['message_queue', 'kafka', 'rabbitmq', 'kafka_connect', 'pulsar'],
   },
   {
-    title: 'Platform Services',
-    keys: [
-      'kafka',
-      'rabbitmq',
-      'kafka_connect',
-      'spark',
-      'flink',
-      'snowflake',
-      'databricks',
-      'dbt',
-      'airflow',
-      'zookeeper',
-      'consul',
-      'vault',
-      'istio',
-      'pulsar',
-    ],
+    // Batch processing, analytics, ETL, and warehouse
+    title: 'Data Engineering',
+    keys: ['spark', 'flink', 'snowflake', 'databricks', 'dbt', 'airflow'],
+  },
+  {
+    // Platform primitives: coordination, discovery, secrets, service mesh
+    title: 'Infrastructure',
+    keys: ['zookeeper', 'consul', 'vault', 'istio'],
   },
   {
     title: 'Observability',

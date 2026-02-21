@@ -18,18 +18,43 @@ import catalog, { PALETTE_SECTIONS } from './data/componentCatalog';
    EditorHeader – shown only when inside a project editor.
    Logo → home, one dropdown per section category, Manage menu.
    ───────────────────────────────────────────────────────────── */
+
+/** Flat search index built once from the catalog. */
+const SEARCH_INDEX: Array<{ key: string; sectionTitle: string }> =
+  PALETTE_SECTIONS.flatMap((s) =>
+    s.keys.map((key) => ({ key, sectionTitle: s.title }))
+  );
+
+function searchComponents(query: string) {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return SEARCH_INDEX.filter(({ key }) => {
+    const spec = catalog[key];
+    if (!spec) return false;
+    return (
+      spec.label.toLowerCase().includes(q) ||
+      spec.type.toLowerCase().includes(q) ||
+      spec.description.toLowerCase().includes(q) ||
+      spec.tags.some((t) => t.toLowerCase().includes(q))
+    );
+  });
+}
+
 function EditorHeader() {
   const navigate  = useNavigate();
   const { createNewProject } = useProjects();
 
   /* Which dropdown is open: section title | 'manage' | null */
   const [open, setOpen] = useState<string | null>(null);
-  const headerRef = useRef<HTMLElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const headerRef  = useRef<HTMLElement>(null);
+  const searchRef  = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
       if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setOpen(null);
+        setSearchQuery('');
       }
     }
     document.addEventListener('mousedown', onOutside);
@@ -37,12 +62,22 @@ function EditorHeader() {
   }, []);
 
   function toggle(key: string) {
+    setSearchQuery('');
     setOpen((prev) => (prev === key ? null : key));
+  }
+
+  function handleSearchFocus() {
+    setOpen(null); // close any category dropdown when search is active
+  }
+
+  function handleSearchKey(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') { setSearchQuery(''); searchRef.current?.blur(); }
   }
 
   function handleDragStart(key: string, e: React.DragEvent) {
     e.dataTransfer.setData('componentType', key);
     e.dataTransfer.effectAllowed = 'copy';
+    setSearchQuery('');
   }
 
   function handleNewProject() {
@@ -50,6 +85,9 @@ function EditorHeader() {
     const p = createNewProject();
     navigate(`/projects/${p.id}`);
   }
+
+  const searchResults = searchComponents(searchQuery);
+  const showSearchResults = searchQuery.trim().length > 0;
 
   return (
     <header className="app-header app-header--editor" ref={headerRef}>
@@ -103,6 +141,62 @@ function EditorHeader() {
       })}
 
       <div className="editor-header-spacer" />
+
+      {/* Search bar */}
+      <div className="hdr-search-wrap">
+        <span className="hdr-search-icon">⌕</span>
+        <input
+          ref={searchRef}
+          className="hdr-search-input"
+          type="text"
+          placeholder="Search components…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={handleSearchFocus}
+          onKeyDown={handleSearchKey}
+          spellCheck={false}
+        />
+        {searchQuery && (
+          <button className="hdr-search-clear" onClick={() => { setSearchQuery(''); searchRef.current?.focus(); }}>
+            ✕
+          </button>
+        )}
+
+        {showSearchResults && (
+          <div className="hdr-search-panel">
+            {searchResults.length === 0 ? (
+              <div className="hdr-search-empty">No components match "{searchQuery}"</div>
+            ) : (
+              <div className="hdr-search-results">
+                {searchResults.map(({ key, sectionTitle }) => {
+                  const spec = catalog[key];
+                  if (!spec) return null;
+                  return (
+                    <div
+                      key={key}
+                      className="hdr-search-item"
+                      draggable
+                      onDragStart={(e) => handleDragStart(key, e)}
+                      title={spec.description}
+                    >
+                      <span
+                        className="hdr-comp-icon"
+                        style={{ background: spec.color, color: spec.textColor }}
+                      >
+                        {spec.icon}
+                      </span>
+                      <div className="hdr-search-item-text">
+                        <span className="hdr-search-item-label">{spec.label}</span>
+                        <span className="hdr-search-item-section">{sectionTitle}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Manage dropdown */}
       <div className="hdr-menu hdr-menu--manage">
