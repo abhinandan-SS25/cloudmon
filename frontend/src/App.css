@@ -5,10 +5,13 @@
 /* ── Reset & Globals ──────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; width: 100%; }
+@font-face {
+  font-family: 'Roboto';
+  src: url(../src/utils/Roboto/Roboto-VariableFont_wdth\,wght.ttf);
+}
 body {
-  font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font-family:'Roboto';
   font-size: 14px;
-  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -401,19 +404,39 @@ body {
 }
 .hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; width: 100%; }
 .hero-kicker { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
-.hero-copy h1 { font-size: 2.6rem; font-weight: 900; margin: 12px 0 16px; line-height: 1.2; }
-.hero-copy h3 { margin-bottom: 10px; }
-.hero-copy p { font-size: 1rem; color: var(--text-dim); line-height: 1.7; }
+.hero-copy h1 { font-size: 5rem; font-weight: 900; margin: 12px 0 16px; line-height: 1.2; }
+.typewriter-h1 {
+  /* Fixed 2-line height so the box never shifts as text wraps/clears */
+  height: calc(5rem * 1.2 * 2);
+  display: block;
+  overflow: hidden;
+}
+.typewriter-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.82em;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-left: 3px;
+  vertical-align: -0.05em;
+  animation: tw-blink 0.9s step-start infinite;
+}
+@keyframes tw-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.hero-copy h2 { margin-bottom: 10px; font-weight: 500;}
+.hero-copy p { margin-top: 20px; font-size: 1rem; }
 .hero-actions { display: flex; gap: 10px; margin-top: 24px; }
 .hero-panel { display: grid; gap: 12px; }
 .panel-card {
   padding: 16px; border-radius: var(--radius-lg); border: 1px solid var(--border);
   background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);
   transition: transform 0.15s, box-shadow 0.15s;
+  transform: translateY(-2px); box-shadow: var(--shadow);
 }
-.panel-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .panel-card h3 { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; }
-.panel-card p { margin: 0; color: var(--text-dim); font-size: 0.875rem; }
+.panel-card p { margin: 0; font-size: 1rem; }
 
 /* ── Projects page ────────────────────────────────────────────── */
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
@@ -424,8 +447,8 @@ body {
   border: 1px solid var(--border); border-radius: var(--radius-lg);
   background: var(--surface); padding: 20px; display: flex;
   flex-direction: column; gap: 16px; transition: all 0.15s;
+  border-color: var(--accent); box-shadow: var(--shadow);
 }
-.project-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
 .project-card-body h3 { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
 .project-card-body span { font-size: 0.8rem; color: var(--text-dim); }
 .project-card-body p { font-size: 0.8rem; color: var(--text-xs); margin-top: 2px; }
