@@ -89,7 +89,11 @@ export default function CloudmonSVG() {
           <rect x="155" y="135" width="110" height="170" rx="6" fill="#F1F5F9" />
           <text x="210" y="215" textAnchor="middle" fill="#475569" fontSize="12" className="label-text">MONOLITHIC</text>
           <text x="210" y="230" textAnchor="middle" fill="#94A3B8" fontSize="10" className="label-text">API SERVER</text>
-          <path d="M 280 220 L 520 220" stroke="#b7b7b7" strokeWidth="2" strokeDasharray="4 4" />
+          <g stroke="#bd7171" strokeWidth="1.5" strokeDasharray="4 4" fill="none">
+            <path d="M 280 220 Q 400 180 580 100" />
+            <path d="M 280 220 L 580 185" />
+            <path d="M 280 220 Q 400 260 580 280" />
+          </g>
         </g>
 
         {/* MICROSERVICES (Scaling Group) */}
@@ -98,29 +102,37 @@ export default function CloudmonSVG() {
             <rect x="0" y="60" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
             <text x="50" y="90" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">AUTH SVC</text>
             <path d="M -240 220 Q -150 220 0 85" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
+            <path d="M 100 85 L 210 100" stroke="#00ba7c" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+
           </g>
 
           <g className="micro" style={{ animationDelay: '0.2s' }}>
             <rect x="0" y="140" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
             <text x="50" y="170" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">PAYMENT API</text>
             <path d="M -240 220 Q -150 220 0 165" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
+            <path d="M 100 165 L 210 170" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+
           </g>
 
           <g className="micro" style={{ animationDelay: '0.4s' }}>
             <rect x="0" y="220" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
             <text x="50" y="250" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">SEARCH SVC</text>
             <path d="M -240 220 L 0 245" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
+            <path d="M 100 245 L 210 200" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+
           </g>
 
           <g className="micro" style={{ animationDelay: '0.6s' }}>
             <rect x="0" y="300" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
             <text x="50" y="330" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">NOTIFS</text>
             <path d="M -240 220 Q -150 220 0 325" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
+            <path d="M 100 325 L 210 280" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
+
           </g>
         </g>
 
         {/* Egress (Storage Tier) */}
-        <g transform="translate(620, 80)">
+        <g transform="translate(580, 80)">
           <g transform="translate(0, 70)">
             <path d="M 0 15 Q 35 0 70 15 L 70 65 Q 35 80 0 65 Z" fill="white" stroke="#9b9b9b" strokeWidth="2" />
             <text x="35" y="45" textAnchor="middle" fill="#94A3B8" fontSize="9" className="label-text">CORE DB</text>
@@ -132,12 +144,6 @@ export default function CloudmonSVG() {
           <g transform="translate(10, 180)">
              <rect width="50" height="45" rx="4" fill="white" stroke="#9b9b9b" strokeWidth="2" />
              <text x="25" y="28" textAnchor="middle" fill="#94A3B8" fontSize="8" className="label-text">BLOB</text>
-          </g>
-          <g opacity="0.5" stroke="#7c7c7c" strokeWidth="1" fill="none">
-            <path d="M -140 5 L 10 20" />
-            <path d="M -140 85 L 0 110" />
-            <path d="M -140 165 L 0 140" />
-            <path d="M -140 245 L 10 210" />
           </g>
         </g>
 

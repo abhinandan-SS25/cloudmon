@@ -20,9 +20,9 @@ export default function LandingPage() {
       <div className="hero">
         <div className="hero-copy">
           <span className="hero-kicker">CloudMon</span>
-          <h1>Visualize your architecture</h1> 
-          <h1>See the impact of your design</h1>
-          <h1>1-click deploy on cloud or local</h1>
+          <h1>Visualize your architecture.</h1> 
+          <h1>See the impact of your design.</h1>
+          <h1>1-click deploy on cloud or local.</h1>
           <h3>Considering dsitributing architecture?</h3>
           <h3>Considering using AWS EC2 instead of Azure VMs?</h3>
           <h3>Wondering how many users you can handle?</h3>
@@ -35,14 +35,8 @@ export default function LandingPage() {
           </button>
         </div>
         <div className="panel-card">
-            <CloudmonSVG />
-            {/* Persisting projects: feature coming soon
-            <button className="btn-secondary" onClick={() => navigate('/projects')}>
-              Browse projects
-            </button>*/}
-          </div>
-        
-        
+          <CloudmonSVG />
+        </div>
       </div>
     </div>
 
