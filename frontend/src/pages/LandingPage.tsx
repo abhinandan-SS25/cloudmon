@@ -4,6 +4,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectsContext';
+import CloudmonSVG from '../components/CloudmonSVG';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -19,38 +20,31 @@ export default function LandingPage() {
       <div className="hero">
         <div className="hero-copy">
           <span className="hero-kicker">CloudMon</span>
-          <h1>Design architecture, then map requests.</h1>
+          <h1>Visualize your architecture</h1> 
+          <h1>See the impact of your design</h1>
+          <h1>1-click deploy on cloud or local</h1>
+          <h3>Considering dsitributing architecture?</h3>
+          <h3>Considering using AWS EC2 instead of Azure VMs?</h3>
+          <h3>Wondering how many users you can handle?</h3>
           <p>
-            Build a base architecture first, then create request flows as nested files.
-            Compare AWS, GCP and Azure costs side-by-side as you design.
+            There have always been back-of-the-envolope estimations and intuitions that drive architecture design. 
+            But now, you can actually visualize your architecture and estiamte the traffic it can handle, what bottlenecks you have, what the estimated cost might be.
           </p>
-          <div className="hero-actions">
-            <button className="btn-primary" onClick={handleStart}>
-              Create a project
-            </button>
+          <button className="btn-primary" onClick={handleStart}>
+            Create a project
+          </button>
+        </div>
+        <div className="panel-card">
+            <CloudmonSVG />
+            {/* Persisting projects: feature coming soon
             <button className="btn-secondary" onClick={() => navigate('/projects')}>
               Browse projects
-            </button>
+            </button>*/}
           </div>
-        </div>
-        <div className="hero-panel">
-          <div className="panel-card">
-            <h3>Architecture first</h3>
-            <p>Sketch components and their connections without extra data detail.</p>
-          </div>
-          <div className="panel-card">
-            <h3>Request-by-request</h3>
-            <p>
-              Every request starts from your base architecture. Evolve flows
-              request-by-request.
-            </p>
-          </div>
-          <div className="panel-card">
-            <h3>Cloud cost comparison</h3>
-            <p>See AWS, GCP and Azure costs side-by-side in the analysis panel.</p>
-          </div>
-        </div>
+        
+        
       </div>
     </div>
+
   );
 }

@@ -98,49 +98,34 @@ function EditorHeader() {
 
       <div className="editor-header-divider" />
 
-      {/* One dropdown per section */}
-      {PALETTE_SECTIONS.map((section) => {
-        const isOpen = open === section.title;
-        return (
-          <div key={section.title} className="hdr-menu">
-            <button
-              className={`hdr-menu-trigger${isOpen ? ' open' : ''}`}
-              onClick={() => toggle(section.title)}
-            >
-              {section.title}
-              <span className="hdr-caret">{isOpen ? '▴' : '▾'}</span>
+      {/* Manage dropdown */}
+      <div className="hdr-menu hdr-menu--manage">
+        <button
+          className={`hdr-menu-trigger hdr-manage-trigger${open === 'manage' ? ' open' : ''}`}
+          onClick={() => toggle('manage')}
+        >
+          Manage
+          <span className="hdr-caret">{open === 'manage' ? '▴' : '▾'}</span>
+        </button>
+
+        {open === 'manage' && (
+          <div className="hdr-manage-panel">
+            <button className="hdr-manage-item" onClick={handleNewProject}>
+              <span className="hdr-manage-icon">＋</span>
+              New project
             </button>
-
-            {isOpen && (
-              <div className="hdr-comp-panel center">
-                {section.keys.map((key) => {
-                  const spec = catalog[key];
-                  if (!spec) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="hdr-comp-item"
-                      draggable
-                      onDragStart={(e) => handleDragStart(key, e)}
-                      title={spec.description}
-                    >
-                      <span
-                        className="hdr-comp-icon"
-                        style={{ background: spec.color, color: spec.textColor }}
-                      >
-                        {spec.icon}
-                      </span>
-                      <span className="hdr-comp-label">{spec.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <button className="hdr-manage-item" onClick={() => { setOpen(null); navigate('/projects'); }}>
+              <span className="hdr-manage-icon">🗂</span>
+              Browse projects
+            </button>
+            <div className="hdr-manage-sep" />
+            <button className="hdr-manage-item" onClick={() => { setOpen(null); navigate('/'); }}>
+              <span className="hdr-manage-icon">🏠</span>
+              Home
+            </button>
           </div>
-        );
-      })}
-
-      <div className="editor-header-spacer" />
+        )}
+      </div>
 
       {/* Search bar */}
       <div className="hdr-search-wrap">
@@ -198,34 +183,48 @@ function EditorHeader() {
         )}
       </div>
 
-      {/* Manage dropdown */}
-      <div className="hdr-menu hdr-menu--manage">
-        <button
-          className={`hdr-menu-trigger hdr-manage-trigger${open === 'manage' ? ' open' : ''}`}
-          onClick={() => toggle('manage')}
-        >
-          Manage
-          <span className="hdr-caret">{open === 'manage' ? '▴' : '▾'}</span>
-        </button>
+      {/* One dropdown per section */}
+      {PALETTE_SECTIONS.map((section) => {
+        const isOpen = open === section.title;
+        return (
+          <div key={section.title} className="hdr-menu">
+            <button
+              className={`hdr-menu-trigger${isOpen ? ' open' : ''}`}
+              onClick={() => toggle(section.title)}
+            >
+              {section.title}
+              <span className="hdr-caret">{isOpen ? '▴' : '▾'}</span>
+            </button>
 
-        {open === 'manage' && (
-          <div className="hdr-manage-panel">
-            <button className="hdr-manage-item" onClick={handleNewProject}>
-              <span className="hdr-manage-icon">＋</span>
-              New project
-            </button>
-            <button className="hdr-manage-item" onClick={() => { setOpen(null); navigate('/projects'); }}>
-              <span className="hdr-manage-icon">🗂</span>
-              Browse projects
-            </button>
-            <div className="hdr-manage-sep" />
-            <button className="hdr-manage-item" onClick={() => { setOpen(null); navigate('/'); }}>
-              <span className="hdr-manage-icon">🏠</span>
-              Home
-            </button>
+            {isOpen && (
+              <div className="hdr-comp-panel center">
+                {section.keys.map((key) => {
+                  const spec = catalog[key];
+                  if (!spec) return null;
+                  return (
+                    <div
+                      key={key}
+                      className="hdr-comp-item"
+                      draggable
+                      onDragStart={(e) => handleDragStart(key, e)}
+                      title={spec.description}
+                    >
+                      <span
+                        className="hdr-comp-icon"
+                        style={{ background: spec.color, color: spec.textColor }}
+                      >
+                        {spec.icon}
+                      </span>
+                      <span className="hdr-comp-label">{spec.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })}
+
     </header>
   );
 }

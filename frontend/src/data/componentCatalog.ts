@@ -8,7 +8,7 @@ const catalog: Record<string, ComponentSpec> = {
   /* ── CLIENT ──────────────────────────────────────────────── */
   client: {
     type: 'client',
-    label: 'Client / Browser',
+    label: 'Web',
     category: 'client',
     icon: '💻',
     color: '#e0e7ff',
@@ -24,7 +24,7 @@ const catalog: Record<string, ComponentSpec> = {
 
   mobile_client: {
     type: 'mobile_client',
-    label: 'Mobile Client',
+    label: 'Mobile',
     category: 'client',
     icon: '📱',
     color: '#e0e7ff',
