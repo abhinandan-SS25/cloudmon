@@ -681,7 +681,6 @@ body {
 .node-card {
     position: relative;
     width: 110px;
-    background-color: var(--surface);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -696,6 +695,7 @@ body {
   }
   .node-card.selected {
     box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.15);
+    background-color: white;
   }
 
   .icon-wrapper {
@@ -1158,8 +1158,7 @@ body {
   border: 1px solid transparent;
   background: none;
   font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 200;
   color: var(--text);
   cursor: pointer;
   border-radius: 10px;
