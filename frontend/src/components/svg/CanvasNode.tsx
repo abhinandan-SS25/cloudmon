@@ -26,10 +26,10 @@ const HANDLE_R = 7;
 /* outside the card border and never overlap card content.      */
 function localHandles(W: number, H: number) {
   return [
-    { key: 'top',    cx: W / 2,        cy: -HANDLE_R      },
-    { key: 'bottom', cx: W / 2,        cy: H + HANDLE_R   },
-    { key: 'left',   cx: -HANDLE_R,    cy: H / 2          },
-    { key: 'right',  cx: W + HANDLE_R, cy: H / 2          },
+    { key: 'top',    cx: W / 2 - 4,        cy: 0 - 6     },
+    { key: 'bottom', cx: W / 2 - 4,        cy: H + 8  },
+    { key: 'left',   cx: 0 - 4,    cy: H / 2        },
+    { key: 'right',  cx: W - 4, cy: H / 2         },
   ];
 }
 
@@ -85,11 +85,12 @@ export function CanvasNode({
 
       {/* ── Connection handles at the four edge midpoints ─── */}
       {localHandles(W, H).map(({ key, cx, cy }) => (
-        <circle
+        <rect
           key={key}
-          cx={cx}
-          cy={cy}
-          r={HANDLE_R}
+          x={cx}
+          y={cy}
+          width={7}
+          height={7}
           className={`conn-handle${showHandles ? ' conn-handle--visible' : ''}`}
           onMouseDown={onConnect}
         />

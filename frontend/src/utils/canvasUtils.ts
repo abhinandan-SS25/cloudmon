@@ -19,8 +19,8 @@ export function nextFolderId(): string  { return `f${_folderCounter++}`; }
 
 /* ── Default node size ───────────────────────────────────────── */
 /* Match the .node-card CSS: width:240px, padding:14px + icon-area:56px = 84px height */
-export const NODE_W = 240;
-export const NODE_H = 58;
+export const NODE_W = 110;
+export const NODE_H = 110;
 
 /* ── Empty canvas ────────────────────────────────────────────── */
 export function emptyCanvas(): CanvasState {

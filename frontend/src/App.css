@@ -499,112 +499,136 @@ body {
 .editor-svg:active { cursor: grabbing; }
 
 /* ── Canvas nodes (inside SVG foreignObject) ──────────────────── */
+
 .node-card {
     position: relative;
-    width: 240px;
-    box-sizing: border-box;
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 1rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    width: 110px; /* Reduced from 130px */
+    background-color: #ffffff; 
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 16px;
+    padding: 8px 6px; /* Dramatically reduced whitespace padding */
     cursor: grab;
     user-select: none;
-    transition: all 0.2s ease-in-out;
-  }
-
-  .node-card:active {
-    cursor: grabbing;
+    transition: box-shadow 0.15s ease;
+    border-radius: 6px;
   }
   .node-card:hover:not(.selected) {
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 12px -3px rgba(0, 0, 0, 0.05);
   }
   .node-card.selected {
-    border-color: transparent;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.15);
   }
-  .node-card.bottleneck {
-    border-color: transparent;
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  }
-  .badge-alert {
-    position: absolute;
-    top: -12px;
-    left: -12px;
-    background-color: #ef4444;
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .badge-instances {
-    position: absolute;
-    top: -12px;
-    right: -12px;
-    background-color: #1e293b;
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 8px;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .icon-area {
-    flex-shrink: 0;
-    width: 56px;
-    height: 56px;
-    border-radius: 1rem;
+
+  /* Refined, Tighter Outline Box */
+  .icon-wrapper {
+    position: relative;
+    width: 48px; /* Reduced from 64px */
+    height: 48px;
+    border-radius: 12px;
+    border: 3px solid var(--theme-color);
+    background-color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--theme-color);
+    transition: all 0.15s ease;
+    z-index: 5;
+  }
+  
+  .node-card:hover:not(.selected) .icon-wrapper {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px -3px var(--theme-color);
+  }
+  
+  .node-card.selected .icon-wrapper {
+    background-color: var(--theme-color);
+    color: #ffffff;
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px var(--theme-color);
+  }
+  
+  .node-card:active .icon-wrapper {
+    transform: scale(0.96);
+  }
+
+  /* Shrunk Badges */
+  .badge-alert {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    background-color: #f06a6a;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    z-index: 10;
+  }
+  
+  .badge-instances {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background-color: #475569;
+    color: #ffffff;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 8px;
+    border: 2px solid #ffffff;
+    z-index: 10;
+  }
+
+  /* Tightly Packed Typography */
+  .text-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 6px; /* Reduced gap */
+    width: 100%;
   }
   .category-text {
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 8px; /* Reduced font size */
+    font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 4px;
-    opacity: 0.8;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 8px;
   }
   .label-text {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1e293b;
-    white-space: nowrap;
+    font-size: 11.5px; /* Shrunk but kept heavy */
+    font-weight: 800;
+    color: #0f172a;
+    text-align: center;
+    line-height: 1.1;
+    margin-bottom: 5px;
+    width: 100%;
+    word-wrap: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.2;
   }
   .ip-text {
-    font-size: 11px;
-    font-weight: 500;
-    color: #94a3b8;
+    font-size: 9px; /* Tighter IP text */
+    font-weight: 700;
+    color: #64748b;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    background-color: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 95%;
+  }
+  
+  .foreign-object-wrapper {
+    width: 100%;
+    height: 100%;
     display: flex;
+    justify-content: center;
     align-items: center;
   }
-  .ip-text svg {
-    margin-right: 6px;
-    opacity: 0.6;
-    flex-shrink: 0;
-  }
+
 .canvas-node-fo { overflow: visible; }
 .canvas-node {
   width: 100%; height: 100%; border-radius: 10px; border: 2px solid var(--border);
