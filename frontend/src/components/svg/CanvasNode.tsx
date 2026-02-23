@@ -22,12 +22,14 @@ import { NodeCard } from '../NodeCard';
 const HANDLE_R = 7;
 
 /* ── Edge midpoints in local (0,0) space ────────────────────── */
+/* Circles are offset outward by HANDLE_R so they sit fully     */
+/* outside the card border and never overlap card content.      */
 function localHandles(W: number, H: number) {
   return [
-    { key: 'top',    cx: W / 2, cy: 0     },
-    { key: 'bottom', cx: W / 2, cy: H     },
-    { key: 'left',   cx: 0,     cy: H / 2 },
-    { key: 'right',  cx: W,     cy: H / 2 },
+    { key: 'top',    cx: W / 2,        cy: -HANDLE_R      },
+    { key: 'bottom', cx: W / 2,        cy: H + HANDLE_R   },
+    { key: 'left',   cx: -HANDLE_R,    cy: H / 2          },
+    { key: 'right',  cx: W + HANDLE_R, cy: H / 2          },
   ];
 }
 
@@ -67,11 +69,10 @@ export function CanvasNode({
         className="canvas-node-fo"
         onContextMenu={onContextMenu}
       >
-        {/* xmlns required for foreignObject in some renderers */}
         <div
-          /* @ts-ignore – xmlns attr on div is fine in SVG context */
+          /* @ts-ignore */
           xmlns="http://www.w3.org/1999/xhtml"
-          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: '100%', height: '100%' }}
         >
           <NodeCard
             node={node}

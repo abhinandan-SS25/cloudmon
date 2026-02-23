@@ -18,8 +18,9 @@ export function nextRequestId(): string { return `r${_requestCounter++}`; }
 export function nextFolderId(): string  { return `f${_folderCounter++}`; }
 
 /* ── Default node size ───────────────────────────────────────── */
-export const NODE_W = 140;
-export const NODE_H = 72;
+/* Match the .node-card CSS: width:240px, padding:14px + icon-area:56px = 84px height */
+export const NODE_W = 240;
+export const NODE_H = 84;
 
 /* ── Empty canvas ────────────────────────────────────────────── */
 export function emptyCanvas(): CanvasState {

@@ -373,6 +373,17 @@ function NodeInspector({
         />
       </div>
 
+      {/* IP Address */}
+      <div className="inspector-field">
+        <label>IP Address</label>
+        <input
+          type="text"
+          placeholder="e.g. 10.0.0.1"
+          value={node.config.ip ?? ''}
+          onChange={(e) => updateConfig({ ip: e.target.value || undefined })}
+        />
+      </div>
+
       {/* ── Deployment ──────────────────────────────────────── */}
       <div className="inspector-section-title">Deployment</div>
       <div className="deploy-summary-row">
