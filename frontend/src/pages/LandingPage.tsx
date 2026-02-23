@@ -4,7 +4,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectsContext';
-import CloudmonSVG from '../components/svg/CloudmonSVG';
 
 const PHRASES = [
   'Visualize your architecture.',
@@ -81,8 +80,57 @@ export default function LandingPage() {
             Create a project
           </button>
         </div>
-        <div className="panel-card">
-          <CloudmonSVG />
+        <div className="panel-card lp-preview-panel">
+          <div className="lp-preview-header">
+            <span className="lp-preview-badge">CloudMon</span>
+            <span className="lp-preview-title">Architecture Studio</span>
+          </div>
+
+          <div className="lp-feature-list">
+            <div className="lp-feature-item">
+              <div className="lp-feature-icon">🗺️</div>
+              <div className="lp-feature-text">
+                <div className="lp-feature-name">Visual Designer</div>
+                <div className="lp-feature-desc">Drag-and-drop 11 component types onto an infinite canvas</div>
+              </div>
+            </div>
+            <div className="lp-feature-item">
+              <div className="lp-feature-icon">⚡</div>
+              <div className="lp-feature-text">
+                <div className="lp-feature-name">Bottleneck Analysis</div>
+                <div className="lp-feature-desc">Simulate traffic at scale and surface weak points instantly</div>
+              </div>
+            </div>
+            <div className="lp-feature-item">
+              <div className="lp-feature-icon">💰</div>
+              <div className="lp-feature-text">
+                <div className="lp-feature-name">Cost Estimation</div>
+                <div className="lp-feature-desc">Compare AWS, GCP, and Azure pricing side-by-side</div>
+              </div>
+            </div>
+            <div className="lp-feature-item">
+              <div className="lp-feature-icon">🚀</div>
+              <div className="lp-feature-text">
+                <div className="lp-feature-name">One-Click Deploy</div>
+                <div className="lp-feature-desc">Generate ready-to-use Terraform snippets for any node</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lp-stat-row">
+            <div className="lp-stat">
+              <span className="lp-stat-val">11</span>
+              <span className="lp-stat-label">Component Types</span>
+            </div>
+            <div className="lp-stat">
+              <span className="lp-stat-val">3</span>
+              <span className="lp-stat-label">Cloud Providers</span>
+            </div>
+            <div className="lp-stat">
+              <span className="lp-stat-val">∞</span>
+              <span className="lp-stat-label">Scale Simulations</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

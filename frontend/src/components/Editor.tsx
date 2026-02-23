@@ -332,6 +332,11 @@ function NodeInspector({
   const hasCloud = cloudOptions.length > 0;
   const PROVIDER_COLORS: Record<string, string> = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
   const PROVIDER_LABELS: Record<string, string> = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
+  const deploymentLabel =
+    mode === 'cloud'
+      ? `${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
+      : 'Local / Test';
+  const effectiveCostPerHour = node.config.customCostPerHour ?? spec?.costPerHour ?? 0;
 
   const updateConfig = (patch: Partial<typeof node.config>) =>
     onUpdate({ ...node, config: { ...node.config, ...patch } });
@@ -351,11 +356,22 @@ function NodeInspector({
         <button className="inspector-close" onClick={onClose}>✕</button>
       </div>
 
+      <div className="inspector-summary-row">
+        <span className={`inspector-summary-pill${mode === 'cloud' ? ' is-cloud' : ''}`}>
+          {mode === 'cloud' ? '☁' : '🖥'} {deploymentLabel}
+        </span>
+        <span className="inspector-summary-pill">{node.config.instances} instances</span>
+        <span className="inspector-summary-pill">${effectiveCostPerHour.toFixed(3)}/hr</span>
+      </div>
+
       {isBottleneck && (
         <div className="inspector-warning">
           ⚠ Bottleneck – lowest throughput in the critical path
         </div>
       )}
+
+      <div className="inspector-subsection">
+        <div className="inspector-section-title">Configuration</div>
 
       {/* Label */}
       <div className="inspector-field">
@@ -382,6 +398,8 @@ function NodeInspector({
           value={node.config.ip ?? ''}
           onChange={(e) => updateConfig({ ip: e.target.value || undefined })}
         />
+      </div>
+
       </div>
 
       {/* ── Deployment ──────────────────────────────────────── */}
@@ -429,6 +447,60 @@ function NodeInspector({
       <button className="inspector-delete-btn" onClick={onDelete}>
         🗑 Delete Node
       </button>
+    </div>
+  );
+}
+
+function ArchitectureOverviewPanel({
+  result,
+  nodeCount,
+  edgeCount,
+}: {
+  result: AnalysisResult;
+  nodeCount: number;
+  edgeCount: number;
+}) {
+  return (
+    <div className="inspector inspector--summary">
+      <div className="inspector-header">
+        <div className="inspector-title-row">
+          <span className="inspector-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
+            📊
+          </span>
+          <div>
+            <div className="inspector-label-small">Workspace</div>
+            <div className="inspector-type">Architecture Overview</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="inspector-summary-row">
+        <span className="inspector-summary-pill">{nodeCount} Nodes</span>
+        <span className="inspector-summary-pill">{edgeCount} Edges</span>
+        <span className="inspector-summary-pill">{formatNumber(result.maxConcurrentUsers)} Users</span>
+      </div>
+
+      <div className="inspector-section-title">Performance Summary</div>
+      <div className="inspector-specs">
+        <div className="inspector-spec-row"><span>Avg latency</span><strong>{result.totalLatencyMs} ms</strong></div>
+        <div className="inspector-spec-row"><span>p99 latency</span><strong>{result.p99LatencyMs} ms</strong></div>
+        <div className="inspector-spec-row"><span>Peak throughput</span><strong>{formatNumber(result.throughputRps)} rps</strong></div>
+        <div className="inspector-spec-row"><span>Max users</span><strong>{formatNumber(result.maxConcurrentUsers)}</strong></div>
+      </div>
+
+      <div className="inspector-section-title">Cost Summary</div>
+      <div className="inspector-specs">
+        <div className="inspector-spec-row"><span>Cost / hour</span><strong>${result.costPerHour.toFixed(2)}</strong></div>
+        <div className="inspector-spec-row"><span>Cost / 1M req</span><strong>${result.costPerMillionRequests.toFixed(3)}</strong></div>
+        <div className="inspector-spec-row"><span>Bottleneck</span><strong>{result.bottleneckLabel ?? 'None'}</strong></div>
+      </div>
+
+      <div className="inspector-section-title">Design Notes</div>
+      <div className="inspector-description">
+        {result.suggestions.length > 0
+          ? result.suggestions.slice(0, 3).join(' • ')
+          : 'Select a node to edit deployment, instance count, and network details.'}
+      </div>
     </div>
   );
 }
@@ -707,6 +779,12 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(420);
+  const resizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
+    active: false,
+    startX: 0,
+    startWidth: 420,
+  });
 
   // recompute analysis whenever nodes/edges change
   const latestAnalysis = useMemo(() => analyzeCanvas({ nodes, edges }), [nodes, edges]);
@@ -816,6 +894,8 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
       if (e.button !== 0) return;
       // Only pan if clicking on background (not a node / handle)
       if ((e.target as Element).closest('.canvas-node-fo')) return;
+      setSelectedNodeId(null);
+      setSelectedEdgeId(null);
       panRef.current = { active: true, startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y };
     },
     [viewport]
@@ -824,6 +904,13 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   /* ── Mouse move: handle pan + node drag + connection drag ── */
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
+      if (resizeRef.current.active) {
+        const delta = resizeRef.current.startX - e.clientX;
+        const maxWidth = Math.max(340, Math.min(620, Math.floor(window.innerWidth * 0.55)));
+        const next = Math.min(maxWidth, Math.max(320, resizeRef.current.startWidth + delta));
+        setInspectorWidth(next);
+        return;
+      }
       // Pan
       if (panRef.current.active) {
         const dx = e.clientX - panRef.current.startX;
@@ -868,6 +955,10 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   /* ── Mouse up ────────────────────────────────────────────── */
   const handleMouseUp = useCallback(
     (e: MouseEvent) => {
+      if (resizeRef.current.active) {
+        resizeRef.current.active = false;
+        return;
+      }
       // Finish pan
       if (panRef.current.active) {
         panRef.current.active = false;
@@ -913,6 +1004,16 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     },
     [connectState, getSvgRect, nodes, edges, viewport, persist]
   );
+
+  const startInspectorResize = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = {
+      active: true,
+      startX: e.clientX,
+      startWidth: inspectorWidth,
+    };
+  }, [inspectorWidth]);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -1017,9 +1118,14 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
   /* ── Render ──────────────────────────────────────────────── */
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
+  const hasInspector = true;
+  const hasPicker = Boolean(instancePickerNodeId);
+  const rootStyle = {
+    '--inspector-w': `${inspectorWidth}px`,
+  } as React.CSSProperties;
 
   return (
-    <div className="editor-root">
+    <div className={`editor-root${hasInspector ? ' has-inspector' : ''}${hasPicker ? ' has-picker' : ''}`} style={rootStyle}>
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <div className="editor-toolbar">
         <div className="toolbar-left">
@@ -1191,8 +1297,10 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
           </g>
         </svg>
 
-        {/* Node Inspector floating right panel */}
-        {selectedNode && (
+        <div className="inspector-resize-handle" onMouseDown={startInspectorResize} />
+
+        {/* Right dock panel: Node details or architecture overview */}
+        {selectedNode ? (
           <NodeInspector
             node={selectedNode}
             analysis={latestAnalysis}
@@ -1200,6 +1308,12 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             onDelete={() => deleteNode(selectedNode.id)}
             onClose={() => setSelectedNodeId(null)}
             onOpenPicker={(id) => setInstancePickerNodeId(id)}
+          />
+        ) : (
+          <ArchitectureOverviewPanel
+            result={latestAnalysis}
+            nodeCount={nodes.length}
+            edgeCount={edges.length}
           />
         )}
       </div>
