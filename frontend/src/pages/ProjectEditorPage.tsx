@@ -3,7 +3,7 @@
    Route: /projects/:projectId
          /projects/:projectId/requests/:requestId
    ═══════════════════════════════════════════════════════════════ */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { Editor } from '../components/Editor';
@@ -27,6 +27,21 @@ const PROVIDER_LABELS: Record<CloudProvider, string> = {
   azure: 'Azure',
 };
 
+type ContextMenuState = {
+  x: number;
+  y: number;
+  flip: boolean;
+  targetId: string;
+  targetKind: 'folder' | 'request';
+} | null;
+
+// rough height: folders have 3 items (~130px), requests have 1 (~50px)
+function ctxPos(e: React.MouseEvent, kind: 'folder' | 'request') {
+  const h = kind === 'folder' ? 134 : 52;
+  const flip = e.clientY + h > window.innerHeight - 8;
+  return { x: Math.min(e.clientX, window.innerWidth - 196), y: e.clientY, flip };
+}
+
 export default function ProjectEditorPage() {
   const { projectId, requestId } = useParams<{
     projectId: string;
@@ -49,6 +64,14 @@ export default function ProjectEditorPage() {
 
   const [canvasSearch, setCanvasSearch] = useState('');
   const [stageOpen, setStageOpen] = useState(true);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+
+  // Close context menu on any global click
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
 
   const project = getProject(projectId ?? '');
   const phase: Phase = requestId ? 'request' : 'base';
@@ -202,48 +225,56 @@ export default function ProjectEditorPage() {
         {/* Expanded panel */}
         {stageOpen && (
           <div className="stage-shelf-panel">
-            {/* Header row */}
-            <div className="stage-shelf-header">
+
+            {/* ── Title bar ─────────────────────────────────── */}
+            <div className="shelf-title-bar">
+              <span className="shelf-title-icon">🗂</span>
+              <div className="shelf-title-text">
+                <span className="shelf-title-label">EXPLORER</span>
+                <span className="shelf-title-sub">{project.name}</span>
+              </div>
+              <button
+                className="shelf-title-close"
+                title="Collapse"
+                onClick={() => setStageOpen(false)}
+              >×</button>
+            </div>
+
+            {/* ── Add strip ──────────────────────────────────── */}
+            <div className="shelf-add-strip">
+              <button className="shelf-add-btn" onClick={() => handleAddRequest()}>
+                <span className="shelf-add-icon">＋</span> New Request
+              </button>
+              <button className="shelf-add-btn shelf-add-btn--folder" onClick={() => handleAddFolder()}>
+                <span className="shelf-add-icon">📁</span> Folder
+              </button>
+            </div>
+
+            {/* ── Search ──────────────────────────────────────── */}
+            <div className="shelf-search-wrap">
               <input
                 type="text"
-                className="stage-shelf-search"
-                placeholder="Search…"
+                className="shelf-search"
+                placeholder="🔍  Filter files…"
                 value={canvasSearch}
                 onChange={(e) => setCanvasSearch(e.target.value)}
               />
-              <button
-                className="stage-shelf-add"
-                title="New Request"
-                onClick={() => handleAddRequest()}
-              >+</button>
-              <button
-                className="stage-shelf-add"
-                title="New Folder"
-                onClick={() => handleAddFolder()}
-              >📁</button>
-              <button
-                className="stage-shelf-close"
-                title="Collapse"
-                onClick={() => setStageOpen(false)}
-              >╌</button>
             </div>
 
-            {/* File-system tree */}
-            <div className="fs-tree">
+            {/* ── File tree ───────────────────────────────────── */}
+            <div className="fs-tree" onClick={() => setContextMenu(null)}>
+
               {/* Root: Base Architecture */}
               {(!canvasSearch ||
                 'base architecture'.includes(canvasSearch.toLowerCase())) && (
                 <div
                   className={`fs-row fs-root${phase === 'base' ? ' active' : ''}`}
-                  style={{ paddingLeft: '8px' }}
                   onClick={() => navigate(`/projects/${projectId}`)}
                 >
                   <span className="fs-chevron">▾</span>
                   <span className="fs-icon">🏗</span>
                   <span className="fs-name">Base Architecture</span>
-                  <span className="fs-meta">
-                    {project.base.nodes.length}n·{project.base.edges.length}e
-                  </span>
+                  <span className="fs-badge">{project.base.nodes.length}</span>
                 </div>
               )}
 
@@ -252,29 +283,25 @@ export default function ProjectEditorPage() {
                 filteredLeaves.map((req) => (
                   <div
                     key={req.id}
-                    className={`fs-row${req.id === requestId && phase === 'request' ? ' active' : ''}`}
+                    className={`fs-row fs-file-row${req.id === requestId && phase === 'request' ? ' active' : ''}`}
                     style={{ paddingLeft: '22px' }}
                     onClick={() => handleOpenRequest(req.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ ...ctxPos(e, 'request'), targetId: req.id, targetKind: 'request' });
+                    }}
                   >
                     <span className="fs-chevron" />
-                    <span className="fs-icon">📄</span>
+                    <span className="fs-icon fs-file-icon">📄</span>
                     <input
                       className="fs-name-input"
                       value={req.name}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        handleRename(req.id, e.target.value);
-                      }}
+                      onChange={(e) => { e.stopPropagation(); handleRename(req.id, e.target.value); }}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <span className="fs-meta">
-                      {req.canvas.nodes.length}n·{req.canvas.edges.length}e
-                    </span>
+                    <span className="fs-badge">{req.canvas.nodes.length}</span>
                     <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="fs-action-btn danger"
-                        onClick={() => handleDelete(req.id)}
-                      >✕</button>
+                      <button className="fs-action-btn danger" onClick={() => handleDelete(req.id)}>✕</button>
                     </div>
                   </div>
                 ))
@@ -290,21 +317,59 @@ export default function ProjectEditorPage() {
                   onToggle={handleToggleFolder}
                   onAddRequest={handleAddRequest}
                   onAddFolder={handleAddFolder}
+                  onContextMenu={(e, id, kind) => {
+                    e.preventDefault();
+                    setContextMenu({ ...ctxPos(e, kind), targetId: id, targetKind: kind });
+                  }}
                 />
               )}
             </div>
 
-            {/* Action strip for active request */}
+            {/* ── Active request actions ────────────────────────── */}
             {phase === 'request' && activeRequest && (
               <div className="stage-shelf-actions">
-                <button className="btn-secondary" onClick={handleDuplicate}>
-                  Duplicate
-                </button>
-                <button className="btn-secondary" onClick={handleResetToBase}>
-                  Reset to Base
-                </button>
+                <button className="btn-secondary" onClick={handleDuplicate}>Duplicate</button>
+                <button className="btn-secondary" onClick={handleResetToBase}>Reset to Base</button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Context menu ────────────────────────────────────── */}
+        {contextMenu && (
+          <div
+            className="explorer-ctx-menu"
+            style={{
+              left: contextMenu.x,
+              ...(contextMenu.flip
+                ? { bottom: window.innerHeight - contextMenu.y + 4 }
+                : { top: contextMenu.y }),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {contextMenu.targetKind === 'folder' && (
+              <>
+                <button
+                  className="ctx-item"
+                  onClick={() => { handleAddRequest(contextMenu.targetId); setContextMenu(null); }}
+                >
+                  <span className="ctx-icon">＋</span> New Request
+                </button>
+                <button
+                  className="ctx-item"
+                  onClick={() => { handleAddFolder(contextMenu.targetId); setContextMenu(null); }}
+                >
+                  <span className="ctx-icon">📁</span> New Subfolder
+                </button>
+                <div className="ctx-sep" />
+              </>
+            )}
+            <button
+              className="ctx-item ctx-item--danger"
+              onClick={() => { handleDelete(contextMenu.targetId); setContextMenu(null); }}
+            >
+              <span className="ctx-icon">🗑</span> Delete
+            </button>
           </div>
         )}
       </div>

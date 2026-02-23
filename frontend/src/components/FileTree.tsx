@@ -15,6 +15,7 @@ export interface FileTreeProps {
   onToggle: (id: string) => void;
   onAddRequest: (parentFolderId?: string) => void;
   onAddFolder: (parentFolderId?: string) => void;
+  onContextMenu?: (e: React.MouseEvent, id: string, kind: 'folder' | 'request') => void;
 }
 
 export function FileTree({
@@ -28,23 +29,25 @@ export function FileTree({
   onToggle,
   onAddRequest,
   onAddFolder,
+  onContextMenu,
 }: FileTreeProps) {
-  const indent = 8 + depth * 14;
+  const indent = 6 + depth * 16;
 
   return (
     <>
       {items.map((item) => {
         if (item.kind === 'folder') {
           return (
-            <div key={item.id}>
+            <div key={item.id} className="fs-folder-group">
               {/* Folder row */}
               <div
-                className="fs-row"
+                className="fs-row fs-folder-row"
                 style={{ paddingLeft: `${indent}px` }}
                 onClick={() => onToggle(item.id)}
+                onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id, 'folder'); }}
               >
-                <span className="fs-chevron">{item.expanded ? '▾' : '▸'}</span>
-                <span className="fs-icon">📁</span>
+                <span className={`fs-chevron${item.expanded ? ' expanded' : ''}`}>›</span>
+                <span className="fs-icon fs-folder-icon">{item.expanded ? '📂' : '📁'}</span>
                 <input
                   className="fs-name-input"
                   value={item.name}
@@ -52,38 +55,32 @@ export function FileTree({
                   onClick={(e) => e.stopPropagation()}
                 />
                 <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="fs-action-btn"
-                    title="New request"
-                    onClick={() => onAddRequest(item.id)}
-                  >+</button>
-                  <button
-                    className="fs-action-btn"
-                    title="New folder"
-                    onClick={() => onAddFolder(item.id)}
-                  >📁</button>
-                  <button
-                    className="fs-action-btn danger"
-                    title="Delete folder"
-                    onClick={() => onDelete(item.id)}
-                  >✕</button>
+                  <button className="fs-action-btn" title="New Request" onClick={() => onAddRequest(item.id)}>＋</button>
+                  <button className="fs-action-btn" title="New Subfolder" onClick={() => onAddFolder(item.id)}>⊞</button>
+                  <button className="fs-action-btn danger" title="Delete" onClick={() => onDelete(item.id)}>✕</button>
                 </div>
               </div>
 
-              {/* Children */}
+              {/* Children with indent guide */}
               {item.expanded && (
-                <FileTree
-                  items={item.children}
-                  depth={depth + 1}
-                  activeRequestId={activeRequestId}
-                  phase={phase}
-                  onOpen={onOpen}
-                  onRename={onRename}
-                  onDelete={onDelete}
-                  onToggle={onToggle}
-                  onAddRequest={onAddRequest}
-                  onAddFolder={onAddFolder}
-                />
+                <div
+                  className="fs-children"
+                  style={{ borderLeft: '1.5px solid var(--border)', marginLeft: `${indent + 12}px` }}
+                >
+                  <FileTree
+                    items={item.children}
+                    depth={0}
+                    activeRequestId={activeRequestId}
+                    phase={phase}
+                    onOpen={onOpen}
+                    onRename={onRename}
+                    onDelete={onDelete}
+                    onToggle={onToggle}
+                    onAddRequest={onAddRequest}
+                    onAddFolder={onAddFolder}
+                    onContextMenu={onContextMenu}
+                  />
+                </div>
               )}
             </div>
           );
@@ -94,12 +91,13 @@ export function FileTree({
         return (
           <div
             key={item.id}
-            className={`fs-row${isActive ? ' active' : ''}`}
+            className={`fs-row fs-file-row${isActive ? ' active' : ''}`}
             style={{ paddingLeft: `${indent}px` }}
             onClick={() => onOpen(item.id)}
+            onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id, 'request'); }}
           >
             <span className="fs-chevron" />
-            <span className="fs-icon">📄</span>
+            <span className="fs-icon fs-file-icon">📄</span>
             <input
               className="fs-name-input"
               value={item.name}
@@ -109,13 +107,11 @@ export function FileTree({
               }}
               onClick={(e) => e.stopPropagation()}
             />
-            <span className="fs-meta">
-              {item.canvas.nodes.length}n·{item.canvas.edges.length}e
-            </span>
+            <span className="fs-badge">{item.canvas.nodes.length}</span>
             <div className="fs-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="fs-action-btn danger"
-                title="Delete request"
+                title="Delete"
                 onClick={() => onDelete(item.id)}
               >✕</button>
             </div>
