@@ -460,46 +460,116 @@ function ArchitectureOverviewPanel({
   nodeCount: number;
   edgeCount: number;
 }) {
+  const efficiency = result.costPerHour > 0 ? result.throughputRps / result.costPerHour : null;
+  const warningsCount = result.warnings?.length ?? 0;
+  const suggestions = result.suggestions ?? [];
+  const criticalPath = result.criticalPath ?? [];
+
   return (
-    <div className="inspector inspector--summary">
-      <div className="inspector-header">
-        <div className="inspector-title-row">
-          <span className="inspector-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-            📊
-          </span>
+    <div className="inspector inspector--summary overview">
+      <div className="overview-header">
+        <div className="overview-title">
+          <span className="overview-icon">🛰</span>
           <div>
-            <div className="inspector-label-small">Workspace</div>
-            <div className="inspector-type">Architecture Overview</div>
+            <div className="overview-kicker">Architecture Snapshot</div>
+            <div className="overview-name">Workspace Overview</div>
+          </div>
+        </div>
+        <div className="overview-chips">
+          <span className="overview-chip">{nodeCount} nodes</span>
+          <span className="overview-chip">{edgeCount} edges</span>
+          <span className="overview-chip overview-chip--accent">{formatNumber(result.maxConcurrentUsers)} users</span>
+        </div>
+      </div>
+
+      <div className="overview-grid">
+        <div className="overview-card overview-card--latency">
+          <div className="ov-label">Latency</div>
+          <div className="ov-value">{result.totalLatencyMs} ms</div>
+          <div className="ov-sub">p99 {result.p99LatencyMs} ms</div>
+        </div>
+
+        <div className="overview-card overview-card--throughput">
+          <div className="ov-label">Throughput</div>
+          <div className="ov-value">{formatNumber(result.throughputRps)}</div>
+          <div className="ov-sub">max rps • users {formatNumber(result.maxConcurrentUsers)}</div>
+        </div>
+
+        <div className="overview-card overview-card--cost">
+          <div className="ov-label">Cost</div>
+          <div className="ov-value">${result.costPerHour.toFixed(2)}</div>
+          <div className="ov-sub">per hour • ${result.costPerMillionRequests.toFixed(3)} / 1M req</div>
+        </div>
+
+        <div className="overview-card overview-card--bottleneck">
+          <div className="ov-label">Bottleneck</div>
+          <div className="ov-value">
+            {result.bottleneckLabel ? result.bottleneckLabel : 'None detected'}
+          </div>
+          <div className="ov-sub">warnings {warningsCount}</div>
+        </div>
+
+        {efficiency && (
+          <div className="overview-card overview-card--efficiency">
+            <div className="ov-label">Efficiency</div>
+            <div className="ov-value">{efficiency.toFixed(1)} rps / $/hr</div>
+            <div className="ov-sub">higher is better</div>
+          </div>
+        )}
+
+        <div className="overview-card overview-card--cloud">
+          <div className="ov-label">Cloud costs</div>
+          <div className="overview-clouds">
+            {(['aws', 'gcp', 'azure'] as const).map((p) => (
+              <div key={p} className="cloud-chip">
+                <span className="cloud-chip-label">{p.toUpperCase()}</span>
+                <span className="cloud-chip-value">${result.cloudCosts[p].costPerHour.toFixed(2)}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="inspector-summary-row">
-        <span className="inspector-summary-pill">{nodeCount} Nodes</span>
-        <span className="inspector-summary-pill">{edgeCount} Edges</span>
-        <span className="inspector-summary-pill">{formatNumber(result.maxConcurrentUsers)} Users</span>
+      <div className="overview-critical">
+        <div className="ov-label">Critical Path</div>
+        <div className="overview-path">
+          {criticalPath.length > 0 ? (
+            criticalPath.map((id, i) => (
+              <React.Fragment key={id}>
+                <span className={`path-node${result.bottleneckNodeId === id ? ' path-node--alert' : ''}`}>
+                  {id}
+                  {result.bottleneckNodeId === id && ' ⚠'}
+                </span>
+                {i < criticalPath.length - 1 && <span className="path-arrow">→</span>}
+              </React.Fragment>
+            ))
+          ) : (
+            <span className="overview-dim">Run analysis to see bottlenecks.</span>
+          )}
+        </div>
       </div>
 
-      <div className="inspector-section-title">Performance Summary</div>
-      <div className="inspector-specs">
-        <div className="inspector-spec-row"><span>Avg latency</span><strong>{result.totalLatencyMs} ms</strong></div>
-        <div className="inspector-spec-row"><span>p99 latency</span><strong>{result.p99LatencyMs} ms</strong></div>
-        <div className="inspector-spec-row"><span>Peak throughput</span><strong>{formatNumber(result.throughputRps)} rps</strong></div>
-        <div className="inspector-spec-row"><span>Max users</span><strong>{formatNumber(result.maxConcurrentUsers)}</strong></div>
-      </div>
-
-      <div className="inspector-section-title">Cost Summary</div>
-      <div className="inspector-specs">
-        <div className="inspector-spec-row"><span>Cost / hour</span><strong>${result.costPerHour.toFixed(2)}</strong></div>
-        <div className="inspector-spec-row"><span>Cost / 1M req</span><strong>${result.costPerMillionRequests.toFixed(3)}</strong></div>
-        <div className="inspector-spec-row"><span>Bottleneck</span><strong>{result.bottleneckLabel ?? 'None'}</strong></div>
-      </div>
-
-      <div className="inspector-section-title">Design Notes</div>
-      <div className="inspector-description">
-        {result.suggestions.length > 0
-          ? result.suggestions.slice(0, 3).join(' • ')
-          : 'Select a node to edit deployment, instance count, and network details.'}
+      <div className="overview-lists">
+        <div>
+          <div className="ov-label">Warnings</div>
+          <ul className="overview-list">
+            {(result.warnings && result.warnings.length > 0
+              ? result.warnings.slice(0, 3)
+              : ['No warnings found.'])
+              .map((w, i) => (
+                <li key={`w-${i}`}>{w}</li>
+              ))}
+          </ul>
+        </div>
+        <div>
+          <div className="ov-label">Suggestions</div>
+          <ul className="overview-list">
+            {(suggestions.length > 0 ? suggestions.slice(0, 3) : ['Select a node to refine deployment settings.'])
+              .map((s, i) => (
+                <li key={`s-${i}`}>{s}</li>
+              ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
