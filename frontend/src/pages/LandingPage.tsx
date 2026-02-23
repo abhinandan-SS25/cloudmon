@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectsContext';
-import CloudmonSVG from '../components/CloudmonSVG';
+import CloudmonSVG from '../components/svg/CloudmonSVG';
 
 const PHRASES = [
   'Visualize your architecture.',
