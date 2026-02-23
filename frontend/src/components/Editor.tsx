@@ -69,7 +69,7 @@ function formatNumber(n: number): string {
 /* ── Sub-components ───────────────────────────────────────────── */
 
 /* Node card rendered inside SVG foreignObject */
-function NodeCard({
+/*function NodeCard({
   node,
   selected,
   isBottleneck,
@@ -100,7 +100,176 @@ function NodeCard({
       </div>
     </div>
   );
+}*/
+
+
+const ServerIcon = ({ size = 28, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="3" y="5" width="18" height="6" rx="2" />
+    <rect x="3" y="13" width="18" height="6" rx="2" />
+    <circle cx="7" cy="8" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="7" cy="16" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const DatabaseIcon = ({ size = 28, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M4 6c0 1.657 3.582 3 8 3s8-1.343 8-3-3.582-3-8-3-8 1.343-8 3z" />
+    <path d="M4 6v12c0 1.657 3.582 3 8 3s8-1.343 8-3V6" />
+    <path d="M4 12c0 1.657 3.582 3 8 3s8-1.343 8-3" />
+  </svg>
+);
+
+const LoadBalancerIcon = ({ size = 28, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="15" y="15" width="6" height="6" rx="1.5" />
+    <rect x="3" y="15" width="6" height="6" rx="1.5" />
+    <rect x="9" y="3" width="6" height="6" rx="1.5" />
+    <path d="M12 9v2" />
+    <path d="M12 11H6v4" />
+    <path d="M12 11h6v4" />
+  </svg>
+);
+
+const CacheIcon = ({ size = 28, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <path d="M9 9h6" />
+    <path d="M9 15h6" />
+  </svg>
+);
+
+// UI/Badge Icons
+const AlertIcon = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const LayersIcon = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 12 12 17 22 12" />
+    <polyline points="2 17 12 22 22 17" />
+  </svg>
+);
+
+const NetworkIcon = ({ size = 12, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="16" y="16" width="6" height="6" rx="1" />
+    <rect x="2" y="16" width="6" height="6" rx="1" />
+    <rect x="9" y="2" width="6" height="6" rx="1" />
+    <path d="M12 8v4" />
+    <path d="M12 12H5v4" />
+    <path d="M12 12h7v4" />
+  </svg>
+);
+
+
+export interface CatalogSpec {
+  icon: React.ReactNode;
+  color: string;       // Used for the top accent bar
+  iconBg: string;      // Used for the prominent icon background
+  textColor: string;   // Used for category text and icon stroke
+  category: string;
 }
+
+const CATALOG: Record<string, CatalogSpec> = {
+  web_server: {
+    icon: <ServerIcon size={28} />,
+    color: '#3b82f6',     // blue-500
+    iconBg: '#eff6ff',    // blue-50
+    textColor: '#2563eb', // blue-600
+    category: 'Compute',
+  },
+  database: {
+    icon: <DatabaseIcon size={28} />,
+    color: '#ec4899',     // pink-500
+    iconBg: '#fdf2f8',    // pink-50
+    textColor: '#db2777', // pink-600
+    category: 'Storage',
+  },
+  loadbalancer: {
+    icon: <LoadBalancerIcon size={28} />,
+    color: '#10b981',     // emerald-500
+    iconBg: '#ecfdf5',    // emerald-50
+    textColor: '#059669', // emerald-600
+    category: 'Network',
+  },
+  cache: {
+    icon: <CacheIcon size={28} />,
+    color: '#f59e0b',     // amber-500
+    iconBg: '#fffbeb',    // amber-50
+    textColor: '#d97706', // amber-600
+    category: 'Memory',
+  },
+};
+
+interface NodeCardProps {
+  node: CyNode;
+  selected: boolean;
+  onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  isBottleneck: boolean
+}
+
+function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCardProps) {
+  // Fallback spec if type is unknown
+  const spec = CATALOG[node.type] || {
+    icon: <ServerIcon size={28} />, color: '#64748b', iconBg: '#f8fafc', textColor: '#475569', category: 'Unknown'
+  };
+  const instances = node.config.instances || 1;
+  const ipAddress = node.config.ip || 'Unassigned IP';
+
+  let cardClasses = "node-card";
+  if (selected) cardClasses += " selected";
+  if (isBottleneck) cardClasses += " bottleneck";
+
+  return (
+    <div className={cardClasses} onMouseDown={onMouseDown}>
+      {/* Floating Badges */}
+      {isBottleneck && (
+        <div className="badge-alert">
+          <AlertIcon size={12} /> Bottleneck
+        </div>
+      )}
+      {instances > 1 && (
+        <div className="badge-instances">
+          <LayersIcon size={12} /> &times;{instances}
+        </div>
+      )}
+
+      {/* Prominent Vector Icon Area (Replicating User Image) */}
+      <div 
+        className="icon-area"
+        style={{ backgroundColor: spec.iconBg, color: spec.textColor }}
+      >
+        {spec.icon}
+      </div>
+
+      {/* Clean Text Details Area */}
+      <div className="text-area">
+        <div 
+          className="category-text" 
+          style={{ color: spec.textColor }}
+        >
+          {spec.category}
+        </div>
+        
+        <div className="label-text" title={node.label}>
+          {node.label}
+        </div>
+        
+        <div className="ip-text">
+          <NetworkIcon size={11} />
+          <span>{ipAddress}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 /* ── Instance Picker (cloud deployment modal) ────────────────── */
 function InstancePicker({
@@ -1221,12 +1390,14 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
                     className="canvas-node-fo"
                     onContextMenu={(e) => handleContextMenu(e as unknown as React.MouseEvent, node.id, 'node')}
                   >
-                    <NodeCard
+                    <div className="w-full h-full flex items-center justify-center">
+                      <NodeCard
                       node={node}
                       selected={isSelected}
                       isBottleneck={isBottleneck}
                       onMouseDown={(e) => startNodeDrag(node.id, e)}
                     />
+                    </div>
                   </foreignObject>
 
                   {/* Connection handles */}

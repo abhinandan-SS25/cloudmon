@@ -69,6 +69,7 @@ export interface NodeConfig {
   customThroughputRps?: number;
   customCostPerHour?: number;
   notes?: string;
+  ip?: string;
 }
 
 export interface CyNode {
