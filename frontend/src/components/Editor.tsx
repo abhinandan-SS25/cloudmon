@@ -114,22 +114,25 @@ function InstancePicker({
     <div className="instance-picker">
       {/* Header */}
       <div className="instance-picker-header">
-          <div className="ip-title-row">
-            <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
-              {spec?.icon ?? '?'}
-            </span>
-            <div>
-              <div className="ip-node-label">{node.label}</div>
-              <div className="ip-node-type">{spec?.label ?? node.type}</div>
-            </div>
+        <div className="ip-title-row">
+          <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
+            {spec?.icon ?? '?'}
+          </span>
+          <div>
+            <div className="ip-node-label">{node.label}</div>
+            <div className="ip-node-type">{spec?.label ?? node.type}</div>
           </div>
-          <button className="ip-close" onClick={onClose}>✕</button>
         </div>
+        <button className="ip-close" onClick={onClose}>✕</button>
+      </div>
 
-        <div className="ip-body">
-
-          {/* Mode toggle */}
-          <div className="ip-section-label">Deployment Mode</div>
+      <div className="ip-body">
+        {/* Mode toggle */}
+        <div className="ip-hero">
+          <div>
+            <div className="ip-hero-kicker">Deployment Mode</div>
+            <div className="ip-hero-title">Choose runtime for this node</div>
+          </div>
           <div className="deploy-mode-toggle">
             <button
               className={`deploy-mode-btn${mode === 'local' ? ' active' : ''}`}
@@ -146,19 +149,19 @@ function InstancePicker({
               ☁ Cloud
             </button>
           </div>
-          {!hasCloud && (
-            <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
-          )}
+        </div>
+        {!hasCloud && (
+          <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
+        )}
 
-          {mode === 'local' && (
-            <>
-              {/* Local Configuration / Override Specs */}
-              <div className="ip-section-label">Override Default Specs</div>
-              
-              <div className="ip-section">
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
-                  Custom Latency (ms)
-                </label>
+        {mode === 'local' && (
+          <>
+            {/* Local Configuration / Override Specs */}
+            <div className="ip-section-label">Override Default Specs</div>
+
+            <div className="ip-grid">
+              <div className="ip-field">
+                <label>Custom Latency (ms)</label>
                 <input
                   className="ip-select"
                   type="number" min={0}
@@ -170,10 +173,8 @@ function InstancePicker({
                 />
               </div>
 
-              <div className="ip-section">
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
-                  Custom Throughput (rps)
-                </label>
+              <div className="ip-field">
+                <label>Custom Throughput (rps)</label>
                 <input
                   className="ip-select"
                   type="number" min={0}
@@ -185,10 +186,8 @@ function InstancePicker({
                 />
               </div>
 
-              <div className="ip-section">
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '4px', display: 'block' }}>
-                  Custom Cost ($/hr)
-                </label>
+              <div className="ip-field">
+                <label>Custom Cost ($/hr)</label>
                 <input
                   className="ip-select"
                   type="number" min={0} step={0.001}
@@ -199,103 +198,104 @@ function InstancePicker({
                   }
                 />
               </div>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-          {mode === 'cloud' && hasCloud && (
-            <>
-              {/* Provider tabs */}
-              <div className="ip-section-label">Provider</div>
-              <div className="deploy-provider-tabs">
-                {cloudOptions.map((svc) => (
-                  <button
-                    key={svc.provider}
-                    className={`deploy-provider-tab${activeProvider === svc.provider ? ' active' : ''}`}
-                    style={{ '--provider-color': PROVIDER_COLORS[svc.provider] } as React.CSSProperties}
-                    onClick={() => setProvider(svc.provider as CloudProvider)}
+        {mode === 'cloud' && hasCloud && (
+          <>
+            {/* Provider tabs */}
+            <div className="ip-section-label">Provider</div>
+            <div className="deploy-provider-tabs">
+              {cloudOptions.map((svc) => (
+                <button
+                  key={svc.provider}
+                  className={`deploy-provider-tab${activeProvider === svc.provider ? ' active' : ''}`}
+                  style={{ '--provider-color': PROVIDER_COLORS[svc.provider] } as React.CSSProperties}
+                  onClick={() => setProvider(svc.provider as CloudProvider)}
+                >
+                  {PROVIDER_LABELS[svc.provider]}
+                </button>
+              ))}
+            </div>
+
+            {activeService && (
+              <>
+                {/* Service card */}
+                <div className="ip-service-card">
+                  <span
+                    className="ip-service-badge"
+                    style={{ background: PROVIDER_COLORS[activeService.provider] }}
                   >
-                    {PROVIDER_LABELS[svc.provider]}
-                  </button>
-                ))}
-              </div>
-
-              {activeService && (
-                <>
-                  {/* Service card */}
-                  <div className="ip-service-card">
-                    <span
-                      className="ip-service-badge"
-                      style={{ background: PROVIDER_COLORS[activeService.provider] }}
-                    >
-                      {PROVIDER_LABELS[activeService.provider]}
-                    </span>
-                    <div className="ip-service-info">
-                      <span className="ip-service-name">{activeService.serviceName}</span>
-                      <code className="ip-tf-resource">{activeService.terraformResource}</code>
-                    </div>
+                    {PROVIDER_LABELS[activeService.provider]}
+                  </span>
+                  <div className="ip-service-info">
+                    <span className="ip-service-name">{activeService.serviceName}</span>
+                    <code className="ip-tf-resource">{activeService.terraformResource}</code>
                   </div>
+                </div>
 
-                  {/* Instance / tier */}
-                  {activeService.instanceTypes.length > 0 && (
-                    <div className="ip-section">
-                      <div className="ip-section-label">
-                        Instance Type
-                        {activeService.terraformInstanceField && (
-                          <code className="ip-tf-field">{activeService.terraformInstanceField}</code>
-                        )}
-                      </div>
-                      <select
-                        className="ip-select"
-                        value={node.config.instanceType ?? ''}
-                        onChange={(e) => {
-                          const it = activeService.instanceTypes.find((t) => t.id === e.target.value);
-                          updateConfig({ instanceType: e.target.value, customCostPerHour: it?.costPerHour });
-                        }}
-                      >
-                        {activeService.instanceTypes.map((it) => (
-                          <option key={it.id} value={it.id}>{it.label}</option>
-                        ))}
-                      </select>
-
-                      {activeInstanceType && (
-                        <div className="deploy-spec-pills" style={{ marginTop: 8 }}>
-                          {activeInstanceType.vcpu !== null && (
-                            <span className="pill">{activeInstanceType.vcpu} vCPU</span>
-                          )}
-                          {activeInstanceType.memoryGb !== null && (
-                            <span className="pill">{activeInstanceType.memoryGb} GB RAM</span>
-                          )}
-                          <span className="pill pill-cost">
-                            ${activeInstanceType.costPerHour.toFixed(
-                              activeInstanceType.costPerHour < 0.01 ? 5 : 3
-                            )}/hr
-                          </span>
-                        </div>
-                      )}
-                      {activeInstanceType?.notes && (
-                        <div className="deploy-instance-note">{activeInstanceType.notes}</div>
+                {/* Instance / tier */}
+                {activeService.instanceTypes.length > 0 && (
+                  <div className="ip-section">
+                    <div className="ip-section-label">
+                      Instance Type
+                      {activeService.terraformInstanceField && (
+                        <code className="ip-tf-field">{activeService.terraformInstanceField}</code>
                       )}
                     </div>
-                  )}
-
-                  {/* Region */}
-                  <div className="ip-section">
-                    <div className="ip-section-label">Region</div>
                     <select
                       className="ip-select"
-                      value={node.config.region ?? activeService.regions[0]}
-                      onChange={(e) => updateConfig({ region: e.target.value })}
+                      value={node.config.instanceType ?? ''}
+                      onChange={(e) => {
+                        const it = activeService.instanceTypes.find((t) => t.id === e.target.value);
+                        updateConfig({ instanceType: e.target.value, customCostPerHour: it?.costPerHour });
+                      }}
                     >
-                      {activeService.regions.map((r) => (
-                        <option key={r} value={r}>{r}</option>
+                      {activeService.instanceTypes.map((it) => (
+                        <option key={it.id} value={it.id}>{it.label}</option>
                       ))}
                     </select>
+
+                    {activeInstanceType && (
+                      <div className="deploy-spec-pills" style={{ marginTop: 8 }}>
+                        {activeInstanceType.vcpu !== null && (
+                          <span className="pill">{activeInstanceType.vcpu} vCPU</span>
+                        )}
+                        {activeInstanceType.memoryGb !== null && (
+                          <span className="pill">{activeInstanceType.memoryGb} GB RAM</span>
+                        )}
+                        <span className="pill pill-cost">
+                          ${activeInstanceType.costPerHour.toFixed(
+                            activeInstanceType.costPerHour < 0.01 ? 5 : 3
+                          )}/hr
+                        </span>
+                      </div>
+                    )}
+                    {activeInstanceType?.notes && (
+                      <div className="deploy-instance-note">{activeInstanceType.notes}</div>
+                    )}
                   </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
+                )}
+
+                {/* Region */}
+                <div className="ip-section">
+                  <div className="ip-section-label">Region</div>
+                  <select
+                    className="ip-select"
+                    value={node.config.region ?? activeService.regions[0]}
+                    onChange={(e) => updateConfig({ region: e.target.value })}
+                  >
+                    {activeService.regions.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
 
         {/* Footer */}
         <div className="ip-footer">
@@ -337,12 +337,16 @@ function NodeInspector({
       ? `${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
       : 'Local / Test';
   const effectiveCostPerHour = node.config.customCostPerHour ?? spec?.costPerHour ?? 0;
+  const latencyMs = node.config.customLatencyMs ?? spec?.latencyMs.avg ?? 0;
+  const p99Ms = node.config.customLatencyMs ?? spec?.latencyMs.p99 ?? latencyMs;
+  const throughput = node.config.customThroughputRps ?? spec?.throughputRps ?? 0;
+  const totalThroughput = throughput * (node.config.instances || 1);
 
   const updateConfig = (patch: Partial<typeof node.config>) =>
     onUpdate({ ...node, config: { ...node.config, ...patch } });
 
   return (
-    <div className="inspector">
+    <div className="inspector inspector--node">
       <div className="inspector-header">
         <div className="inspector-title-row">
           <span className="inspector-icon" style={{ background: spec?.color, color: spec?.textColor }}>
@@ -356,12 +360,12 @@ function NodeInspector({
         <button className="inspector-close" onClick={onClose}>✕</button>
       </div>
 
-      <div className="inspector-summary-row">
-        <span className={`inspector-summary-pill${mode === 'cloud' ? ' is-cloud' : ''}`}>
+      <div className="ni-chips">
+        <span className={`ni-chip${mode === 'cloud' ? ' ni-chip--accent' : ''}`}>
           {mode === 'cloud' ? '☁' : '🖥'} {deploymentLabel}
         </span>
-        <span className="inspector-summary-pill">{node.config.instances} instances</span>
-        <span className="inspector-summary-pill">${effectiveCostPerHour.toFixed(3)}/hr</span>
+        <span className="ni-chip">{node.config.instances} instances</span>
+        <span className="ni-chip">${effectiveCostPerHour.toFixed(3)}/hr</span>
       </div>
 
       {isBottleneck && (
@@ -370,69 +374,88 @@ function NodeInspector({
         </div>
       )}
 
-      <div className="inspector-subsection">
-        <div className="inspector-section-title">Configuration</div>
-
-      {/* Label */}
-      <div className="inspector-field">
-        <label>Label</label>
-        <input value={node.label} onChange={(e) => onUpdate({ ...node, label: e.target.value })} />
-      </div>
-
-      {/* Instances */}
-      <div className="inspector-field">
-        <label>Instances</label>
-        <input
-          type="number" min={1} max={100}
-          value={node.config.instances}
-          onChange={(e) => updateConfig({ instances: Number(e.target.value) || 1 })}
-        />
-      </div>
-
-      {/* IP Address */}
-      <div className="inspector-field">
-        <label>IP Address</label>
-        <input
-          type="text"
-          placeholder="e.g. 10.0.0.1"
-          value={node.config.ip ?? ''}
-          onChange={(e) => updateConfig({ ip: e.target.value || undefined })}
-        />
-      </div>
-
-      </div>
-
-      {/* ── Deployment ──────────────────────────────────────── */}
-      <div className="inspector-section-title">Deployment</div>
-      <div className="deploy-summary-row">
-        <div
-          className="deploy-summary-badge"
-          style={
-            mode === 'cloud' && node.config.cloudProvider
-              ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
-              : undefined
-          }
-        >
-          {mode === 'cloud'
-            ? `☁ ${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
-            : '🖥 Local / Test'}
+      <div className="ni-grid">
+        <div className="ni-card ni-card--latency">
+          <div className="ni-label">Latency</div>
+          <div className="ni-value">{latencyMs} ms</div>
+          <div className="ni-sub">p99 {p99Ms} ms</div>
         </div>
-        {mode === 'cloud' && node.config.region && (
-          <span className="deploy-summary-region">{node.config.region}</span>
-        )}
+        <div className="ni-card ni-card--throughput">
+          <div className="ni-label">Throughput</div>
+          <div className="ni-value">{formatNumber(totalThroughput)}</div>
+          <div className="ni-sub">total rps • per node {formatNumber(throughput)}</div>
+        </div>
+        <div className="ni-card ni-card--cost">
+          <div className="ni-label">Cost</div>
+          <div className="ni-value">${effectiveCostPerHour.toFixed(2)}</div>
+          <div className="ni-sub">per hour</div>
+        </div>
+        <div className="ni-card ni-card--deploy">
+          <div className="ni-label">Deployment</div>
+          <div className="ni-value">{mode === 'cloud' ? PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud' : 'Local / Test'}</div>
+          <div className="ni-sub">{node.config.region ?? 'no region selected'}</div>
+        </div>
       </div>
-      <button
-        className="deploy-configure-btn"
-        onClick={() => onOpenPicker(node.id)}
-        title={mode === 'cloud' ? 'Configure cloud deployment' : 'Configure local settings'}
-      >
-        {mode === 'cloud' ? '☁ Configure Deployment…' : '⚙ Configure…'}
-      </button>
+
+      <div className="ni-panel">
+        <div className="ni-panel-title">Basics</div>
+        <div className="ni-fields">
+          <div className="ni-field">
+            <label>Label</label>
+            <input value={node.label} onChange={(e) => onUpdate({ ...node, label: e.target.value })} />
+          </div>
+          <div className="ni-field">
+            <label>Instances</label>
+            <input
+              type="number" min={1} max={100}
+              value={node.config.instances}
+              onChange={(e) => updateConfig({ instances: Number(e.target.value) || 1 })}
+            />
+          </div>
+          <div className="ni-field">
+            <label>IP Address</label>
+            <input
+              type="text"
+              placeholder="e.g. 10.0.0.1"
+              value={node.config.ip ?? ''}
+              onChange={(e) => updateConfig({ ip: e.target.value || undefined })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="ni-panel">
+        <div className="ni-panel-title">Deployment</div>
+        <div className="deploy-summary-row">
+          <div
+            className="deploy-summary-badge"
+            style={
+              mode === 'cloud' && node.config.cloudProvider
+                ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
+                : undefined
+            }
+          >
+            {mode === 'cloud'
+              ? `☁ ${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
+              : '🖥 Local / Test'}
+          </div>
+          {mode === 'cloud' && node.config.region && (
+            <span className="deploy-summary-region">{node.config.region}</span>
+          )}
+        </div>
+        <button
+          className="deploy-configure-btn"
+          onClick={() => onOpenPicker(node.id)}
+          title={mode === 'cloud' ? 'Configure cloud deployment' : 'Configure local settings'}
+        >
+          {mode === 'cloud' ? '☁ Configure Deployment…' : '⚙ Configure…'}
+        </button>
+      </div>
 
       {/* ── Spec Reference ──────────────────────────────────── */}
       {spec && (
-        <>
-          <div className="inspector-section-title">Spec Reference</div>
+        <div className="ni-panel">
+          <div className="ni-panel-title">Spec Reference</div>
           <div className="inspector-specs">
             <div className="inspector-spec-row"><span>Avg latency</span><strong>{spec.latencyMs.avg} ms</strong></div>
             <div className="inspector-spec-row"><span>p99 latency</span><strong>{spec.latencyMs.p99} ms</strong></div>
@@ -441,7 +464,7 @@ function NodeInspector({
             <div className="inspector-spec-row"><span>Scalable</span><strong>{spec.horizontallyScalable ? '✅ Yes' : '❌ No'}</strong></div>
           </div>
           <div className="inspector-description">{spec.description}</div>
-        </>
+        </div>
       )}
 
       <button className="inspector-delete-btn" onClick={onDelete}>
