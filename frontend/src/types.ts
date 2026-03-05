@@ -54,6 +54,86 @@ export interface ComponentSpec {
   tags: string[];
 }
 
+/* ── Port binding (host:container mapping) ────────────────────── */
+export interface PortBinding {
+  hostPort: number;
+  containerPort: number;
+  protocol: 'tcp' | 'udp';
+}
+
+/* ── Environment variable ─────────────────────────────────────── */
+export interface EnvVar {
+  key: string;
+  value: string;
+  secret?: boolean;
+}
+
+/* ── Volume mount ─────────────────────────────────────────────── */
+export type VolumeMountType = 'bind' | 'volume' | 'tmpfs';
+export interface VolumeMount {
+  id: string;
+  name: string;              // named volume or host path
+  containerPath: string;
+  readOnly: boolean;
+  sizeGb?: number;
+  type: VolumeMountType;
+}
+
+/* ── Resource limits ──────────────────────────────────────────── */
+export interface ResourceLimits {
+  cpuMillicores?: number;    // 1000 = 1 vCPU core
+  memoryMb?: number;
+}
+
+/* ── Health check ─────────────────────────────────────────────── */
+export type HealthCheckType = 'http' | 'tcp' | 'exec';
+export interface HealthCheck {
+  type: HealthCheckType;
+  path?: string;             // HTTP endpoint, e.g. "/healthz"
+  port?: number;
+  command?: string;          // exec command
+  intervalSeconds: number;
+  timeoutSeconds: number;
+  healthyThreshold: number;
+  unhealthyThreshold: number;
+}
+
+/* ── Docker container (sub-component living inside a compute node) */
+export interface DockerContainer {
+  id: string;
+  name: string;
+  image: string;
+  tag: string;               // "latest", "1.23.0", etc.
+  ports: PortBinding[];
+  env: EnvVar[];
+  volumes: VolumeMount[];
+  resources: ResourceLimits;
+  restartPolicy: 'always' | 'unless-stopped' | 'on-failure' | 'no';
+  healthCheck?: HealthCheck;
+  notes?: string;
+}
+
+/* ── Firewall / security-group rule ──────────────────────────── */
+export interface FirewallRule {
+  id: string;
+  direction: 'inbound' | 'outbound';
+  protocol: 'tcp' | 'udp' | 'icmp' | 'all';
+  portRange: string;         // "80", "80-443", or "*"
+  cidr: string;              // "0.0.0.0/0", "10.0.0.0/8", etc.
+  action: 'allow' | 'deny';
+  description?: string;
+  priority?: number;
+}
+
+/* ── Host-level port exposure ─────────────────────────────────── */
+export interface HostPort {
+  id: string;
+  port: number;
+  protocol: 'tcp' | 'udp';
+  service: string;           // descriptive name, e.g. "HTTP", "Postgres"
+  description?: string;
+}
+
 /* ── Node instance on the canvas ─────────────────────────────── */
 export type DeploymentMode = 'local' | 'cloud';
 
@@ -70,6 +150,16 @@ export interface NodeConfig {
   customCostPerHour?: number;
   notes?: string;
   ip?: string;
+  // ── Internal sub-components (for compute / server nodes) ──────
+  containers?: DockerContainer[];  // Docker containers hosted on this node
+  firewallRules?: FirewallRule[];  // Security-group / NFW rules
+  hostPorts?: HostPort[];          // Host-level exposed ports
+  globalEnv?: EnvVar[];            // Ambient environment variables
+  // ── Server/VM hardware spec overrides ─────────────────────────
+  osType?: string;                 // e.g. "ubuntu-22.04", "alpine-3.18"
+  cpuCores?: number;               // vCPU count
+  ramGb?: number;                  // RAM in GB
+  diskGb?: number;                 // Primary disk in GB
 }
 
 export interface CyNode {

@@ -113,6 +113,8 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCard
   };
   const instances = node.config.instances || 1;
   const ipAddress = node.config.ip || 'Unassigned IP';
+  const containerCount = node.config.containers?.length ?? 0;
+  const firewallCount = node.config.firewallRules?.length ?? 0;
 
   return (
     <div 
@@ -127,6 +129,11 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCard
       <div className="icon-wrapper">
         {isBottleneck && <div className="badge-alert" title="Warning: Bottleneck" />}
         {instances > 1 && <div className="badge-instances">x{instances}</div>}
+        {containerCount > 0 && (
+          <div className="badge-containers" title={`${containerCount} container${containerCount !== 1 ? 's' : ''}`}>
+            📦{containerCount}
+          </div>
+        )}
         
         {spec.icon}
       </div>
@@ -140,6 +147,11 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCard
           {/* Automatically handles formatting like the "Unassigned IP" pill */}
           {ipAddress.replace(' ', '\n')} 
         </div>
+        {firewallCount > 0 && (
+          <div className="node-fw-badge" title={`${firewallCount} firewall rule${firewallCount !== 1 ? 's' : ''}`}>
+            🛡 {firewallCount}
+          </div>
+        )}
       </div>
     </div>
   );

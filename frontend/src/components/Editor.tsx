@@ -11,6 +11,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import catalog from '../data/componentCatalog';
 import { CLOUD_MAPPINGS } from '../data/cloudInstanceTypes';
 import type { CloudServiceOption } from '../data/cloudInstanceTypes';
@@ -34,6 +35,14 @@ import type {
 /* ── Constants ────────────────────────────────────────────────── */
 const MIN_SCALE = 0.15;
 const MAX_SCALE = 3;
+
+/* ── Node types that support the deep internal-configuration editor */
+const CONFIGURABLE_TYPES = new Set([
+  'web_server', 'app_server', 'microservice', 'container', 'kubernetes',
+  'monolithic_api', 'graphql', 'serverless',
+  'postgres', 'sql', 'dynamodb', 'non_relational', 'redis', 'elasticsearch',
+  'api_gateway', 'load_balancer', 'firewall', 'vpn',
+]);
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 function screenToCanvas(
@@ -317,6 +326,7 @@ function NodeInspector({
   onDelete,
   onClose,
   onOpenPicker,
+  onConfigureInternals,
 }: {
   node: CyNode;
   analysis: AnalysisResult | null;
@@ -324,6 +334,7 @@ function NodeInspector({
   onDelete: () => void;
   onClose: () => void;
   onOpenPicker: (id: string) => void;
+  onConfigureInternals?: () => void;
 }) {
   const spec = catalog[node.type];
   const isBottleneck = analysis?.bottleneckNodeId === node.id;
@@ -366,6 +377,16 @@ function NodeInspector({
         </span>
         <span className="ni-chip">{node.config.instances} instances</span>
         <span className="ni-chip">${effectiveCostPerHour.toFixed(3)}/hr</span>
+        {(node.config.containers?.length ?? 0) > 0 && (
+          <span className="ni-chip ni-chip--containers" title="Internal Docker containers">
+            📦 {node.config.containers!.length} container{node.config.containers!.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        {(node.config.firewallRules?.length ?? 0) > 0 && (
+          <span className="ni-chip" title="Firewall rules configured">
+            🛡 {node.config.firewallRules!.length} rule{node.config.firewallRules!.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {isBottleneck && (
@@ -465,6 +486,16 @@ function NodeInspector({
           </div>
           <div className="inspector-description">{spec.description}</div>
         </div>
+      )}
+
+      {onConfigureInternals && CONFIGURABLE_TYPES.has(node.type) && (
+        <button
+          className="inspector-configure-btn"
+          onClick={onConfigureInternals}
+          title="Open the detailed internal editor for this component"
+        >
+          ⊞ Configure Internals →
+        </button>
       )}
 
       <button className="inspector-delete-btn" onClick={onDelete}>
@@ -751,6 +782,7 @@ function ContextMenu({
   onInspect,
   onConfigureCloud,
   onAddNode,
+  onConfigureInternals,
 }: {
   state: ContextMenuState;
   onClose: () => void;
@@ -759,6 +791,7 @@ function ContextMenu({
   onInspect: (id: string) => void;
   onConfigureCloud: (id: string) => void;
   onAddNode: (x: number, y: number) => void;
+  onConfigureInternals?: (id: string) => void;
 }) {
   if (!state.visible) return null;
   return (
@@ -779,6 +812,14 @@ function ContextMenu({
             >
               ☁ Configure Deployment
             </button>
+            {onConfigureInternals && (
+              <button
+                className="ctx-item"
+                onClick={() => { onConfigureInternals!(state.targetId!); onClose(); }}
+              >
+                ⊞ Configure Internals →
+              </button>
+            )}
             <div className="ctx-divider" />
             <button
               className="ctx-item ctx-danger"
@@ -820,6 +861,10 @@ interface EditorProps {
 }
 
 export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
+  /* ── routing (used to navigate to node detail pages) ────────── */
+  const navigate = useNavigate();
+  const { projectId, requestId } = useParams<{ projectId: string; requestId?: string }>();
+
   /* ── local canvas state ──────────────────────────────────── */
   const [nodes, setNodes] = useState<CyNode[]>(activeCanvas.nodes);
   const [edges, setEdges] = useState<CyEdge[]>(activeCanvas.edges);
@@ -1401,6 +1446,17 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             onDelete={() => deleteNode(selectedNode.id)}
             onClose={() => setSelectedNodeId(null)}
             onOpenPicker={(id) => setInstancePickerNodeId(id)}
+            onConfigureInternals={
+              CONFIGURABLE_TYPES.has(selectedNode.type) && projectId
+                ? () => {
+                    const base = `/projects/${projectId}`;
+                    const url = requestId
+                      ? `${base}/requests/${requestId}/nodes/${selectedNode.id}`
+                      : `${base}/nodes/${selectedNode.id}`;
+                    navigate(url);
+                  }
+                : undefined
+            }
           />
         ) : (
           <ArchitectureOverviewPanel
@@ -1420,6 +1476,18 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
         onInspect={(id) => setSelectedNodeId(id)}
         onConfigureCloud={(id) => setInstancePickerNodeId(id)}
         onAddNode={addNodeAt}
+        onConfigureInternals={
+          ctxMenu.targetType === 'node' && ctxMenu.targetId && projectId &&
+          CONFIGURABLE_TYPES.has(nodes.find((n) => n.id === ctxMenu.targetId)?.type ?? '')
+            ? (id) => {
+                const base = `/projects/${projectId}`;
+                const url = requestId
+                  ? `${base}/requests/${requestId}/nodes/${id}`
+                  : `${base}/nodes/${id}`;
+                navigate(url);
+              }
+            : undefined
+        }
       />
 
       {/* Analysis Panel */}

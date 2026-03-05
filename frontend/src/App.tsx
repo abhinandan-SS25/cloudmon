@@ -10,6 +10,7 @@ import './App.css';
 
 import { ProjectsProvider, useProjects } from './context/ProjectsContext';
 import LandingPage from './pages/LandingPage';
+import NodeDetailPage from './pages/NodeDetailPage';
 import ProjectEditorPage from './pages/ProjectEditorPage';
 import ProjectsPage from './pages/ProjectsPage';
 import catalog, { PALETTE_SECTIONS } from './data/componentCatalog';
@@ -283,6 +284,16 @@ function App() {
             <Route
               path="/projects/:projectId/requests/:requestId"
               element={<ProjectEditorPage />}
+            />
+            {/* Node detail deep-editor (base canvas) */}
+            <Route
+              path="/projects/:projectId/nodes/:nodeId"
+              element={<NodeDetailPage />}
+            />
+            {/* Node detail deep-editor (request canvas) */}
+            <Route
+              path="/projects/:projectId/requests/:requestId/nodes/:nodeId"
+              element={<NodeDetailPage />}
             />
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

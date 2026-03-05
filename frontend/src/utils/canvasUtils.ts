@@ -10,12 +10,20 @@ let _edgeCounter = 1;
 let _projectCounter = 1;
 let _requestCounter = 1;
 let _folderCounter = 1;
+let _containerCounter = 1;
+let _volumeCounter = 1;
+let _firewallCounter = 1;
+let _hostPortCounter = 1;
 
-export function nextNodeId(): string    { return `n${_nodeCounter++}`; }
-export function nextEdgeId(): string    { return `e${_edgeCounter++}`; }
-export function nextProjectId(): string { return `p${_projectCounter++}`; }
-export function nextRequestId(): string { return `r${_requestCounter++}`; }
-export function nextFolderId(): string  { return `f${_folderCounter++}`; }
+export function nextNodeId(): string       { return `n${_nodeCounter++}`; }
+export function nextEdgeId(): string       { return `e${_edgeCounter++}`; }
+export function nextProjectId(): string    { return `p${_projectCounter++}`; }
+export function nextRequestId(): string    { return `r${_requestCounter++}`; }
+export function nextFolderId(): string     { return `f${_folderCounter++}`; }
+export function nextContainerId(): string  { return `c${_containerCounter++}`; }
+export function nextVolumeId(): string     { return `vol${_volumeCounter++}`; }
+export function nextFirewallId(): string   { return `fw${_firewallCounter++}`; }
+export function nextHostPortId(): string   { return `hp${_hostPortCounter++}`; }
 
 /* ── Default node size ───────────────────────────────────────── */
 /* Match the .node-card CSS: width:240px, padding:14px + icon-area:56px = 84px height */

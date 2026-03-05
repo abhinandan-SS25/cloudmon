@@ -49,6 +49,11 @@ interface ProjectsContextValue {
   resetToBase: (projectId: string, requestId: string) => void;
   setCloudProvider: (projectId: string, provider: CloudProvider) => void;
   getProject: (projectId: string) => Project | undefined;
+  /**
+   * Replace a single node (matched by id) in the base canvas or a request canvas.
+   * Use this from NodeDetailPage to persist internal sub-component changes.
+   */
+  updateNode: (projectId: string, phase: Phase, requestId: string, node: CyNode) => void;
 }
 
 /* ── Context ──────────────────────────────────────────────────── */
@@ -237,6 +242,37 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateNode = useCallback(
+    (projectId: string, phase: Phase, requestId: string, node: CyNode) => {
+      setProjects((prev) =>
+        prev.map((project) => {
+          if (project.id !== projectId) return project;
+          if (phase === 'base') {
+            return {
+              ...project,
+              base: {
+                ...project.base,
+                nodes: project.base.nodes.map((n) => (n.id === node.id ? node : n)),
+              },
+            };
+          }
+          if (!requestId) return project;
+          return {
+            ...project,
+            requests: updateLeafInTree(project.requests, requestId, (r) => ({
+              ...r,
+              canvas: {
+                ...r.canvas,
+                nodes: r.canvas.nodes.map((n) => (n.id === node.id ? node : n)),
+              },
+            })),
+          };
+        })
+      );
+    },
+    []
+  );
+
   const value = useMemo<ProjectsContextValue>(
     () => ({
       projects,
@@ -251,6 +287,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       resetToBase,
       setCloudProvider,
       getProject,
+      updateNode,
     }),
     [
       projects,
@@ -265,6 +302,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       resetToBase,
       setCloudProvider,
       getProject,
+      updateNode,
     ]
   );
 
