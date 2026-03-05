@@ -433,7 +433,7 @@ body {
 }
 
 .hero-copy {
-  padding: 0;
+  padding: 40px;
 }
 
 .hero-kicker { 
@@ -445,43 +445,34 @@ body {
 }
 
 .hero-copy h1 { 
-  font-size: 5rem; 
+  font-size: 5.5rem; 
   font-weight: 900; 
   margin: 12px 0 24px; 
   line-height: 1.2; 
+  min-height: 30vh;
+  padding: 30px
 }
 
-.typewriter-h1 {
-  height: calc(5rem * 1.2 * 2);
-  display: block;
-  overflow: hidden;
+.hero-subline {
+  font-size: 1.2rem;
+  margin: 4px 0;
+  color: var(--text);
 }
 
-.typewriter-cursor {
-  display: inline-block;
-  width: 3px;
-  height: 0.82em;
-  background: var(--accent);
-  border-radius: 2px;
-  margin-left: 3px;
-  vertical-align: -0.05em;
-  animation: tw-blink 0.9s step-start infinite;
-}
-
-@keyframes tw-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-
-.hero-subtitle { 
-  margin-top: 16px; 
-  font-size: 1.1rem; 
+.hero-paragraph {
+  margin: 12px 0 18px;
+  font-size: 1.05rem;
   line-height: 1.6;
   color: var(--text-dim);
+  max-width: 680px;
 }
 
-.hero-copy .btn-primary { 
-  margin-top: 32px; 
+.lp-symbol-row {
+  display: flex;
+  gap: 10px;
+  font-size: 2rem;
+  color: var(--text-dim);
+  margin: 8px 0 18px;
 }
 
 .hero-visual {
@@ -489,6 +480,16 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+.lp-visual-card {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+}
+.lp-visual-card svg { width: 100%; height: auto; display: block; }
 
 .hero-actions { 
   display: flex; 
@@ -1251,6 +1252,21 @@ body {
 .inspector-label-small {
   font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase;
   letter-spacing: 0.08em; font-weight: 700;
+}
+.typewriter-cursor {
+  display: inline-block;
+  width: 4px;
+  height: 0.85em;
+  background: var(--accent);
+  border-radius: 2px;
+  margin-left: 3px;
+  vertical-align: -0.1em;
+  animation: tw-blink 0.9s step-start infinite;
+}
+
+@keyframes tw-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 .inspector-type { font-size: 0.88rem; font-weight: 600; color: var(--text); }
 .inspector-close {

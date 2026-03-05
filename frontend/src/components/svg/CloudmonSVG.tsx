@@ -1,183 +1,335 @@
 import React from 'react';
 
-export default function CloudmonSVG() {
+export default function CloudmonSVG(props:any) {
     return (
-    <div className="w-[40vw] mx-auto rounded-3xl overflow-hidden bg-white border border-slate-200 shadow-2xl p-4">
-      <svg
-        viewBox="0 0 800 600"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-auto"
-      >
-        <defs>
-          <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
+    <div className="hero-svg-container">
+      <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 1000 600" 
+      width="100%" 
+      height="100%"
+      {...props}
+    >
+      <defs>
+        {/* Background Grid to match platform */}
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="1" opacity="0.8"/>
+        </pattern>
 
-          <style>
-            {`
-              @keyframes slideFlow {
-                to { stroke-dashoffset: -20; }
-              }
-              
-              /* Monolith Disappear */
-              @keyframes monolithFade {
-                0%, 20% { opacity: 1; transform: scale(1); }
-                40%, 100% { opacity: 0.1; transform: scale(0.85); }
-              }
-
-              /* Microservices Appear */
-              @keyframes microservicePop {
-                0%, 40% { opacity: 0; transform: scale(0.5); }
-                60%, 100% { opacity: 1; transform: scale(1); }
-              }
-
-              /* Metrics Shift */
-              @keyframes costDrop {
-                0%, 40% { width: 400px; fill: #EF4444; }
-                60%, 100% { width: 120px; fill: #10B981; }
-              }
-              @keyframes throughputRise {
-                0%, 40% { width: 100px; }
-                60%, 100% { width: 400px; }
-              }
-
-              .monolith { animation: monolithFade 8s ease-in-out infinite; transform-origin: 200px 220px; }
-              .micro { animation: microservicePop 8s ease-in-out infinite; transform-origin: center; }
-              .cost-bar { animation: costDrop 8s ease-in-out infinite; }
-              .throughput-bar { animation: throughputRise 8s ease-in-out infinite; }
-              
-              .flow-path {
-                stroke-dasharray: 5, 5;
-                animation: slideFlow 1s linear infinite;
-              }
-
-              .label-text { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
-            `}
-          </style>
-        </defs>
-
-        {/* Background Canvas */}
-        <rect width="800" height="600" fill="#F8FAFC" />
-        <g opacity="0.1" stroke="#787878" strokeWidth="1">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <line key={i} x1={i * 40} y1="0" x2={i * 40} y2="600" />
-          ))}
-          {Array.from({ length: 20 }).map((_, i) => (
-            <line key={i} y1={i * 40} x1="0" x2="800" y2={i * 40} />
-          ))}
-        </g>
-
-        {/* =========================================
-            TOP SECTION: ARCHITECTURE
-            ========================================= */}
+        {/* Drop Shadows for Nodes and Panels */}
+        <filter id="shadow-sm" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.05"/>
+        </filter>
+        <filter id="shadow-lg" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="10" stdDeviation="15" floodColor="#0f172a" floodOpacity="0.1"/>
+        </filter>
+        <filter id="shadow-code" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="15" stdDeviation="20" floodColor="#000000" floodOpacity="0.15"/>
+        </filter>
         
-        {/* Gateway / Ingress */}
-        <g transform="translate(40, 220)">
-          <path d="M -10 0 L 20 0" stroke="#3B82F6" strokeWidth="2" className="flow-path" />
-          <rect x="20" y="-40" width="50" height="80" rx="8" fill="white" stroke="#9b9b9b" strokeWidth="2" />
-          <g transform="translate(30, -20)">
-             <path d="M 0 5 L 30 5 M 0 20 L 30 20 M 0 35 L 30 35" stroke="#94A3B8" strokeWidth="2" />
+        {/* Warning Pulse Effect */}
+        <filter id="glow-warning">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                print(rep, c)
+        </filter>
+      </defs>
+
+      <style>{`
+        /* Typography matching the platform */
+        .text-title { font-family: system-ui, -apple-system, sans-serif; font-weight: 700; font-size: 14px; fill: #1e293b; }
+        .text-ui { font-family: system-ui, -apple-system, sans-serif; font-weight: 600; font-size: 12px; }
+        .text-small { font-family: system-ui, -apple-system, sans-serif; font-size: 10px; font-weight: 500; fill: #64748b; }
+        .text-code { font-family: "Fira Code", monospace; font-size: 11px; font-weight: 400; }
+        
+        /* Animations */
+        @keyframes flow { to { stroke-dashoffset: -40; } }
+        @keyframes flow-slow { to { stroke-dashoffset: -20; } }
+        @keyframes float1 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+        @keyframes float2 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-4px); } }
+        @keyframes float3 { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        
+        @keyframes pulse-border {
+          0%, 100% { stroke: #fbbf24; }
+          50% { stroke: #ef4444; }
+        }
+        
+        @keyframes popIn {
+          0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        
+        @keyframes typeLine { 0% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Classes */
+        .data-stream { fill: none; stroke-width: 3; stroke-dasharray: 8 24; stroke-linecap: round; }
+        .stream-fast { stroke: #3b82f6; animation: flow 0.8s linear infinite; }
+        .stream-slow { stroke: #ef4444; animation: flow-slow 2.5s linear infinite; }
+        .stream-success { stroke: #10b981; animation: flow 1.2s linear infinite; }
+        
+        .base-path { fill: none; stroke: #cbd5e1; stroke-width: 2; }
+
+        .node-group { cursor: pointer; transition: transform 0.2s ease; }
+        .node-group:hover { transform: translateY(-2px); }
+        .node-bg { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; filter: url(#shadow-sm); transition: stroke 0.3s ease; }
+        .node-group:hover .node-bg { stroke: #3b82f6; stroke-width: 2; }
+        
+        .icon-stroke { stroke: #475569; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+
+        .float-1 { animation: float1 4s ease-in-out infinite; transform-origin: center; }
+        .float-2 { animation: float2 5s ease-in-out infinite; transform-origin: center; }
+        .float-3 { animation: float3 6s ease-in-out infinite alternate; transform-origin: center; }
+        
+        .warning-node { animation: pulse-border 2s infinite; stroke-width: 2; }
+        
+        .pop-delay-1 { animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards; opacity: 0; }
+        .pop-delay-2 { animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards; opacity: 0; }
+        .pop-delay-3 { animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards; opacity: 0; }
+        .pop-delay-4 { animation: popIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.8s forwards; opacity: 0; }
+        
+        .type-1 { animation: typeLine 0.1s forwards; opacity: 0; animation-delay: 2.2s; }
+        .type-2 { animation: typeLine 0.1s forwards; opacity: 0; animation-delay: 2.4s; }
+        .type-3 { animation: typeLine 0.1s forwards; opacity: 0; animation-delay: 2.6s; }
+        .type-4 { animation: typeLine 0.1s forwards; opacity: 0; animation-delay: 2.8s; }
+        .type-5 { animation: typeLine 0.1s forwards; opacity: 0; animation-delay: 3.0s; }
+      `}</style>
+
+      {/* Light Canvas Background */}
+      <rect width="100%" height="100%" fill="#f8fafc"/>
+      <rect width="100%" height="100%" fill="url(#grid)"/>
+
+      {/* Edges / Connections */}
+      <g id="edges">
+        {/* Web to API Gateway */}
+        <path d="M 160 220 C 220 220, 220 300, 280 300" className="base-path"/>
+        <path d="M 160 220 C 220 220, 220 300, 280 300" className="data-stream stream-fast"/>
+
+        {/* Mobile to API Gateway */}
+        <path d="M 160 380 C 220 380, 220 300, 280 300" className="base-path"/>
+        <path d="M 160 380 C 220 380, 220 300, 280 300" className="data-stream stream-fast"/>
+
+        {/* API Gateway to Load Balancer */}
+        <path d="M 360 300 L 460 300" className="base-path"/>
+        <path d="M 360 300 L 460 300" className="data-stream stream-fast"/>
+
+        {/* Load Balancer to Microservice 1 (Healthy) */}
+        <path d="M 540 300 C 600 300, 600 180, 660 180" className="base-path"/>
+        <path d="M 540 300 C 600 300, 600 180, 660 180" className="data-stream stream-success"/>
+
+        {/* Load Balancer to Microservice 2 (Bottleneck) */}
+        <path d="M 540 300 C 600 300, 600 420, 660 420" className="base-path warning-node"/>
+        <path d="M 540 300 C 600 300, 600 420, 660 420" className="data-stream stream-slow"/>
+
+        {/* Microservice 1 to DB */}
+        <path d="M 740 180 C 820 180, 820 300, 880 300" className="base-path"/>
+        <path d="M 740 180 C 820 180, 820 300, 880 300" className="data-stream stream-fast"/>
+
+        {/* Microservice 2 to DB */}
+        <path d="M 740 420 C 820 420, 820 300, 880 300" className="base-path"/>
+        <path d="M 740 420 C 820 420, 820 300, 880 300" className="data-stream stream-slow"/>
+      </g>
+
+      {/* Nodes (Nested inside positioning groups) */}
+      <g id="nodes">
+        
+        {/* Web Client */}
+        <g transform="translate(80, 180)">
+          <g className="float-2">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">Web</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Unassigned IP</text>
+            </g>
           </g>
-          <text x="45" y="55" textAnchor="middle" fill="#94A3B8" fontSize="8" className="label-text">GATEWAY</text>
-          <path d="M 70 0 L 100 0" stroke="#3B82F6" strokeWidth="2" className="flow-path" />
         </g>
 
-        {/* MONOLITH (Center Overlay) */}
-        <g className="monolith">
-          <rect x="140" y="120" width="140" height="200" rx="12" fill="white" stroke="#bd7171" strokeWidth="2" />
-          <rect x="155" y="135" width="110" height="170" rx="6" fill="#F1F5F9" />
-          <text x="210" y="215" textAnchor="middle" fill="#475569" fontSize="12" className="label-text">MONOLITHIC</text>
-          <text x="210" y="230" textAnchor="middle" fill="#94A3B8" fontSize="10" className="label-text">API SERVER</text>
-          <g stroke="#bd7171" strokeWidth="1.5" strokeDasharray="4 4" fill="none">
-            <path d="M 280 220 Q 400 180 580 100" />
-            <path d="M 280 220 L 580 185" />
-            <path d="M 280 220 Q 400 260 580 280" />
+        {/* Mobile Client */}
+        <g transform="translate(80, 340)">
+          <g className="float-1">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">Mobile</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Unassigned IP</text>
+            </g>
           </g>
         </g>
 
-        {/* MICROSERVICES (Scaling Group) */}
-        <g transform="translate(380, 0)">
-          <g className="micro" style={{ animationDelay: '0s' }}>
-            <rect x="0" y="60" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
-            <text x="50" y="90" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">AUTH SVC</text>
-            <path d="M -240 220 Q -150 220 0 85" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
-            <path d="M 100 85 L 210 100" stroke="#00ba7c" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
-          </g>
-
-          <g className="micro" style={{ animationDelay: '0.2s' }}>
-            <rect x="0" y="140" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
-            <text x="50" y="170" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">PAYMENT API</text>
-            <path d="M -240 220 Q -150 220 0 165" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
-            <path d="M 100 165 L 210 170" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
-          </g>
-
-          <g className="micro" style={{ animationDelay: '0.4s' }}>
-            <rect x="0" y="220" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
-            <text x="50" y="250" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">SEARCH SVC</text>
-            <path d="M -240 220 L 0 245" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
-            <path d="M 100 245 L 210 200" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
-          </g>
-
-          <g className="micro" style={{ animationDelay: '0.6s' }}>
-            <rect x="0" y="300" width="100" height="50" rx="10" fill="white" stroke="#10B981" strokeWidth="2" filter="url(#glow-green)" />
-            <text x="50" y="330" textAnchor="middle" fill="#065F46" fontSize="9" className="label-text">NOTIFS</text>
-            <path d="M -240 220 Q -150 220 0 325" stroke="#10B981" strokeWidth="2" fill="none" className="flow-path" />
-            <path d="M 100 325 L 210 280" stroke="#10B981" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
+        {/* API Gateway */}
+        <g transform="translate(280, 260)">
+          <g className="float-3">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <circle cx="40" cy="40" r="45" fill="none" stroke="#e0f2fe" strokeWidth="20" opacity="0.4"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">API Gateway</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Throughput: 5k</text>
+            </g>
           </g>
         </g>
 
-        {/* Egress (Storage Tier) */}
-        <g transform="translate(580, 80)">
-          <g transform="translate(0, 70)">
-            <path d="M 0 15 Q 35 0 70 15 L 70 65 Q 35 80 0 65 Z" fill="white" stroke="#9b9b9b" strokeWidth="2" />
-            <text x="35" y="45" textAnchor="middle" fill="#94A3B8" fontSize="9" className="label-text">CORE DB</text>
-          </g>
-          <g transform="translate(10, 0)">
-            <rect width="50" height="40" rx="6" fill="white" stroke="#9b9b9b" strokeWidth="2" />
-            <text x="25" y="25" textAnchor="middle" fill="#94A3B8" fontSize="8" className="label-text">CACHE</text>
-          </g>
-          <g transform="translate(10, 180)">
-             <rect width="50" height="45" rx="4" fill="white" stroke="#9b9b9b" strokeWidth="2" />
-             <text x="25" y="28" textAnchor="middle" fill="#94A3B8" fontSize="8" className="label-text">BLOB</text>
+        {/* Load Balancer */}
+        <g transform="translate(460, 260)">
+          <g className="float-1">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <path d="M8 5v14l11-7z"></path>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">Load Balancer</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Throughput: 5k</text>
+            </g>
           </g>
         </g>
 
-        {/* =========================================
-            BOTTOM SECTION: PERFORMANCE CARD
-            ========================================= */}
-        <g transform="translate(50, 420)">
-          <rect width="700" height="150" rx="24" fill="white" stroke="#F1F5F9" strokeWidth="1" style={{ filter: 'drop-shadow(0 15px 25px rgba(0,0,0,0.06))' }} />
+        {/* Microservice 1 (Healthy) */}
+        <g transform="translate(660, 140)">
+          <g className="float-2">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <rect x="0" y="0" width="80" height="80" rx="12" fill="none" stroke="#10b981" strokeWidth="2" opacity="0.3"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">Microservice</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Instances: 4</text>
+            </g>
+          </g>
+        </g>
+
+        {/* Microservice 2 (Bottleneck) */}
+        <g transform="translate(660, 380)">
+          <g className="float-3">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" fill="#fff" stroke="#f59e0b" className="warning-node" filter="url(#shadow-sm)"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#ea580c" textAnchor="middle">Microservice</text>
+              <text x="40" y="72" className="text-small" fill="#ef4444" textAnchor="middle">Maxed: 1 Inst.</text>
+            </g>
+          </g>
+        </g>
+
+        {/* PostgreSQL DB */}
+        <g transform="translate(880, 260)">
+          <g className="float-1">
+            <g className="node-group">
+              <rect x="0" y="0" width="80" height="80" rx="12" className="node-bg"/>
+              <g className="icon-stroke" transform="translate(28, 20)">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+              </g>
+              <text x="40" y="58" className="text-ui" fill="#1e293b" textAnchor="middle">PostgreSQL</text>
+              <text x="40" y="72" className="text-small" textAnchor="middle">Storage: 50GB</text>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      {/* Right Sidebar UI Panels (Matching Screenshot) */}
+      <g id="ui-panels" transform="translate(830, 20)">
+        
+        {/* Workspace Overview Header */}
+        <g transform="translate(0, 0)">
+          <g className="pop-delay-1">
+            <g className="float-2">
+              <rect x="0" y="0" width="150" height="50" rx="8" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1" filter="url(#shadow-lg)"/>
+              <circle cx="20" cy="25" r="4" fill="#3b82f6"/>
+              <text x="35" y="22" className="text-title" fontSize="12">Workspace</text>
+              <text x="35" y="38" className="text-small">Overview</text>
+            </g>
+          </g>
+        </g>
+
+        {/* Latency Card */}
+        <g transform="translate(0, 60)">
+          <g className="pop-delay-2">
+            <g className="float-1">
+              <rect x="0" y="0" width="150" height="60" rx="8" fill="#fff7ed" stroke="#ffedd5" strokeWidth="1" filter="url(#shadow-lg)"/>
+              <text x="15" y="20" className="text-small" fill="#9a3412">LATENCY</text>
+              <text x="15" y="45" className="text-title" fontSize="20">1450 ms</text>
+              <path d="M120 40 L130 30 L140 40" fill="none" stroke="#ea580c" strokeWidth="2"/>
+            </g>
+          </g>
+        </g>
+
+        {/* Bottleneck Card */}
+        <g transform="translate(0, 130)">
+          <g className="pop-delay-3">
+            <g className="float-3">
+              <rect x="0" y="0" width="150" height="60" rx="8" fill="#fefce8" stroke="#fef08a" strokeWidth="1" filter="url(#shadow-lg)"/>
+              <text x="15" y="20" className="text-small" fill="#854d0e">BOTTLENECK</text>
+              <text x="15" y="45" className="text-title" fontSize="16">Microservice</text>
+              <circle cx="130" cy="35" r="4" fill="#ef4444" className="warning-node"/>
+            </g>
+          </g>
+        </g>
+
+        {/* Cost Card */}
+        <g transform="translate(0, 200)">
+          <g className="pop-delay-4">
+            <g className="float-2">
+              <rect x="0" y="0" width="150" height="60" rx="8" fill="#f0fdf4" stroke="#dcfce3" strokeWidth="1" filter="url(#shadow-lg)"/>
+              <text x="15" y="20" className="text-small" fill="#166534">HOURLY COST</text>
+              <text x="15" y="45" className="text-title" fontSize="20">$0.95</text>
+              <text x="85" y="43" className="text-small" fill="#15803d">/ AWS</text>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      {/* Dark Mode Terraform IDE Snippet (Bottom Left) */}
+      <g transform="translate(40, 440)">
+        <g className="pop-delay-4">
+          <rect x="0" y="0" width="300" height="130" rx="8" fill="#0f172a" stroke="#334155" strokeWidth="1" filter="url(#shadow-code)"/>
           
-          <text x="30" y="40" fill="#0F172A" fontSize="16" className="label-text">System Performance</text>
-          <text x="670" y="40" textAnchor="end" fill="#64748B" fontSize="10" className="label-text">Distribute your monolith API</text>
-
-          {/* Metric 1: Throughput */}
-          <g transform="translate(30, 70)">
-            <text x="0" y="0" fill="#64748B" fontSize="10" className="label-text">MAX THROUGHPUT (REQ/SEC)</text>
-            <rect x="0" y="10" width="640" height="10" rx="5" fill="#F1F5F9" />
-            <rect x="0" y="10" width="100" height="10" rx="5" fill="#3B82F6" className="throughput-bar" />
-          </g>
-
-          {/* Metric 2: Infrastructure Cost */}
-          <g transform="translate(30, 115)">
-            <text x="0" y="0" fill="#64748B" fontSize="10" className="label-text">INFRASTRUCTURE COST ($/MO)</text>
-            <rect x="0" y="10" width="640" height="10" rx="5" fill="#F1F5F9" />
-            <rect x="0" y="10" width="400" height="10" rx="5" fill="#EF4444" className="cost-bar" />
+          {/* Mac Window Controls */}
+          <circle cx="15" cy="15" r="4" fill="#ef4444"/>
+          <circle cx="28" cy="15" r="4" fill="#f59e0b"/>
+          <circle cx="41" cy="15" r="4" fill="#10b981"/>
+          <text x="60" y="15" className="text-ui" fontSize="10" fill="#64748b" dominantBaseline="central">main.tf - Terraform Export</text>
+          <path d="M 0 30 L 300 30" stroke="#1e293b" strokeWidth="1"/>
+          
+          {/* Code Typing Animation */}
+          <g transform="translate(15, 50)">
+            <text className="text-code type-1" fill="#c678dd">resource <tspan fill="#98c379">"aws_db_instance"</tspan> <tspan fill="#e5c07b">"main"</tspan> {"{"}</text>
+            <text y="20" className="text-code type-2" fill="#e06c75">  allocated_storage <tspan fill="#abb2bf">= </tspan><tspan fill="#d19a66">50</tspan></text>
+            <text y="40" className="text-code type-3" fill="#e06c75">  engine            <tspan fill="#abb2bf">= </tspan><tspan fill="#98c379">"postgres"</tspan></text>
+            <text y="60" className="text-code type-4" fill="#e06c75">  instance_class    <tspan fill="#abb2bf">= </tspan><tspan fill="#98c379">"db.t3.micro"</tspan></text>
+            <text y="80" className="text-code type-5" fill="#abb2bf">{"}"}</text>
+            {/* Blinking Cursor */}
+            <rect 
+              x="15" 
+              y="70" 
+              width="6" 
+              height="12" 
+              fill="#3b82f6" 
+              className="type-5" 
+              style={{ animation: 'typeLine 0.1s forwards, blink 1s infinite 3s', opacity: 0, animationDelay: '3.2s' }}
+            />
           </g>
         </g>
-
-        {/* Floating Optimization Status */}
-        <g transform="translate(650, 40)">
-           <rect width="140" height="30" rx="15" fill="#F0FDF4" stroke="#BBF7D0" />
-           <circle cx="15" cy="15" r="3" fill="#10B981" />
-           <text x="28" y="19" fill="#166534" fontSize="9" className="label-text">Updating Architecture</text>
-        </g>
-      </svg>
+      </g>
+    </svg>
     </div>
   );
 }

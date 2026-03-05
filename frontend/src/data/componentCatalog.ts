@@ -281,9 +281,9 @@ const catalog: Record<string, ComponentSpec> = {
     tags: ['data', 'sql', 'relational', 'rdbms'],
   },
 
-  mysql: {
-    type: 'mysql',
-    label: 'MySQL',
+  sql: {
+    type: 'sql',
+    label: 'sql',
     category: 'data',
     icon: '🐬',
     color: '#ede9fe',
@@ -293,7 +293,7 @@ const catalog: Record<string, ComponentSpec> = {
     costPerHour: 0.12,
     maxConnections: 600,
     horizontallyScalable: false,
-    description: 'Popular RDBMS. Good for read-heavy workloads with replicas.',
+    description: 'Popular RDBMS that enable interaction with SQL',
     tags: ['data', 'sql', 'relational', 'rdbms'],
   },
 
@@ -313,9 +313,9 @@ const catalog: Record<string, ComponentSpec> = {
     tags: ['data', 'nosql', 'dynamodb', 'managed'],
   },
 
-  mongodb: {
-    type: 'mongodb',
-    label: 'MongoDB',
+  non_relational: {
+    type: 'non_relational',
+    label: 'non_relational',
     category: 'data',
     icon: '🍃',
     color: '#ede9fe',
@@ -326,7 +326,7 @@ const catalog: Record<string, ComponentSpec> = {
     maxConnections: 1_000,
     horizontallyScalable: true,
     description: 'Document NoSQL DB. Flexible schema, horizontal sharding.',
-    tags: ['data', 'nosql', 'document', 'mongodb'],
+    tags: ['data', 'nosql', 'document'],
   },
 
   redis: {
@@ -774,39 +774,28 @@ export const PALETTE_SECTIONS: Array<{
   keys: string[];
 }> = [
   {
-    title: 'Starting Points',
+    title: 'Client',
     keys: ['client', 'mobile_client'],
   },
   {
     title: 'Network',
-    keys: ['cdn', 'dns', 'api_gateway', 'load_balancer', 'firewall', 'vpn'],
+    keys: ['cdn', 'api_gateway', 'load_balancer'],
   },
   {
     title: 'Compute',
     keys: [
       'web_server',
-      'monolithic_api',
-      'app_server',
       'microservice',
       'serverless',
-      'container',
-      'kubernetes',
-      'graphql',
     ],
   },
   {
     title: 'Databases',
     keys: [
-      'postgres',
-      'mysql',
-      'dynamodb',
-      'mongodb',
+      'sql',
+      'non_relational',
       'redis',
-      'memcached',
       'elasticsearch',
-      'cassandra',
-      'influxdb',
-      'neo4j',
     ],
   },
   {
@@ -821,11 +810,11 @@ export const PALETTE_SECTIONS: Array<{
   {
     // Batch processing, analytics, ETL, and warehouse
     title: 'Data Engineering',
-    keys: ['spark', 'flink', 'snowflake', 'databricks', 'dbt', 'airflow'],
+    keys: ['spark', 'flink', 'snowflake', 'airflow'],
   },
   {
     // Platform primitives: coordination, discovery, secrets, service mesh
-    title: 'Infrastructure',
+    title: 'Control',
     keys: ['zookeeper', 'consul', 'vault', 'istio'],
   },
   {

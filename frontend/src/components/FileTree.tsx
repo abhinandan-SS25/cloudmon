@@ -3,6 +3,8 @@
    ═══════════════════════════════════════════════════════════════ */
 import React from 'react';
 import { Phase, RequestTreeItem } from '../types';
+import { FaFolder, FaFolderOpen } from "react-icons/fa";
+import { FiFilePlus } from "react-icons/fi";
 
 export interface FileTreeProps {
   items: RequestTreeItem[];
@@ -47,7 +49,7 @@ export function FileTree({
                 onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id, 'folder'); }}
               >
                 <span className={`fs-chevron${item.expanded ? ' expanded' : ''}`}>›</span>
-                <span className="fs-icon fs-folder-icon">{item.expanded ? '📂' : '📁'}</span>
+                <span className="fs-icon fs-folder-icon">{item.expanded ? <FaFolder /> : <FaFolderOpen />}</span>
                 <input
                   className="fs-name-input"
                   value={item.name}
@@ -97,7 +99,7 @@ export function FileTree({
             onContextMenu={(e) => { e.preventDefault(); onContextMenu?.(e, item.id, 'request'); }}
           >
             <span className="fs-chevron" />
-            <span className="fs-icon fs-file-icon">📄</span>
+            <span className="fs-icon fs-file-icon"><FiFilePlus /></span>
             <input
               className="fs-name-input"
               value={item.name}

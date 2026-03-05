@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════════════ */
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-
+import { FaFolderPlus, FaFolderOpen } from "react-icons/fa";
 import { Editor } from '../components/Editor';
 import { FileTree } from '../components/FileTree';
 import { useProjects } from '../context/ProjectsContext';
@@ -228,7 +228,7 @@ export default function ProjectEditorPage() {
 
             {/* ── Title bar ─────────────────────────────────── */}
             <div className="shelf-title-bar">
-              <span className="shelf-title-icon">🗂</span>
+              <span className="shelf-title-icon"><FaFolderOpen /></span>
               <div className="shelf-title-text">
                 <span className="shelf-title-label">EXPLORER</span>
                 <span className="shelf-title-sub">{project.name}</span>
@@ -246,7 +246,7 @@ export default function ProjectEditorPage() {
                 <span className="shelf-add-icon">＋</span> New Request
               </button>
               <button className="shelf-add-btn shelf-add-btn--folder" onClick={() => handleAddFolder()}>
-                <span className="shelf-add-icon">📁</span> Folder
+                <span className="shelf-add-icon"><FaFolderPlus /></span> Folder
               </button>
             </div>
 
@@ -255,7 +255,7 @@ export default function ProjectEditorPage() {
               <input
                 type="text"
                 className="shelf-search"
-                placeholder="🔍  Filter files…"
+                placeholder="Filter files…"
                 value={canvasSearch}
                 onChange={(e) => setCanvasSearch(e.target.value)}
               />
@@ -359,7 +359,7 @@ export default function ProjectEditorPage() {
                   className="ctx-item"
                   onClick={() => { handleAddFolder(contextMenu.targetId); setContextMenu(null); }}
                 >
-                  <span className="ctx-icon">📁</span> New Subfolder
+                  <span className="ctx-icon"><FaFolderPlus /></span> New Subfolder
                 </button>
                 <div className="ctx-sep" />
               </>
