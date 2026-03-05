@@ -1223,6 +1223,91 @@ body {
   border-radius: 14px;
   background: rgba(255,255,255,0.5);
 }
+.ov-metric-sub2 {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+.ov-analyse-btn {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background 0.14s, box-shadow 0.14s;
+}
+.ov-analyse-btn:hover:not(:disabled) {
+  background: var(--accent-hover, #115e59);
+  box-shadow: 0 4px 14px rgba(15,118,110,0.3);
+}
+.ov-analyse-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Override .inspector sizing for the overview panel (no node selected) */
+.ov-inspector {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* ── Analysis Panel ───────────────────────────────────────────── */
+.analysis-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.analysis-panel {
+  background: var(--surface); border-radius: 20px; box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 720px; max-height: 82vh; overflow-y: auto;
+  display: flex; flex-direction: column; scrollbar-width: thin;
+}
+.analysis-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.analysis-header h2 { font-size: 1.2rem; font-weight: 700; }
+.analysis-close {
+  background: none; border: none; cursor: pointer; color: var(--text-dim);
+  font-size: 1rem; padding: 6px; border-radius: 8px; transition: all 0.1s;
+}
+.analysis-close:hover { background: var(--surface2); color: var(--text); }
+.analysis-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border);
+}
+.metric-card {
+  padding: 20px; text-align: center; border-right: 1px solid var(--border);
+}
+.metric-card:nth-child(3n) { border-right: none; }
+.metric-card:nth-child(n+4) { border-top: 1px solid var(--border); }
+.metric-value { font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+.metric-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; font-weight: 500; }
+.metric-latency .metric-value { color: #2563eb; }
+.metric-p99 .metric-value { color: #7c3aed; }
+.metric-throughput .metric-value { color: var(--accent); }
+.metric-users .metric-value { color: #16a34a; }
+.metric-cost .metric-value { color: #d97706; }
+.metric-costmil .metric-value { color: #b45309; }
+
+/* Placeholder block inside analysis panel */
+.analysis-placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 36px 32px; text-align: center;
+}
+.analysis-placeholder-icon { font-size: 2.2rem; }
+.analysis-placeholder-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.analysis-placeholder-body {
+  font-size: 0.84rem; color: var(--text-dim); line-height: 1.6;
+  max-width: 420px;
+  padding: 14px 18px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  border-left: 3px solid var(--accent);
+}
 .inspector-header {
   position: sticky;
   top: 0;

@@ -509,70 +509,148 @@ function ArchitectureOverviewPanel({
   result,
   nodeCount,
   edgeCount,
+  onAnalyse,
 }: {
   result: AnalysisResult;
   nodeCount: number;
   edgeCount: number;
+  onAnalyse: () => void;
 }) {
   const isHighLatency = result.totalLatencyMs > 500;
   const hasBottleneck = Boolean(result.bottleneckLabel);
   const isEmpty = nodeCount === 0;
 
   return (
-    <div className="ov-panel">
-      {/* Header card */}
-      <div className="ov-card ov-card--header">
-        <span className="ov-header-dot" />
-        <div>
-          <div className="ov-header-title">Workspace</div>
-          <div className="ov-header-sub">Overview</div>
+    <div className="inspector ov-inspector">
+      <div className="ov-panel">
+        {/* Header card */}
+        <div className="ov-card ov-card--header">
+          <span className="ov-header-dot" />
+          <div>
+            <div className="ov-header-title">Workspace</div>
+            <div className="ov-header-sub">Overview</div>
+          </div>
+          <div className="ov-header-chips">
+            <span className="ov-chip">{nodeCount}</span>
+            <span className="ov-chip-label">nodes</span>
+            <span className="ov-chip">{edgeCount}</span>
+            <span className="ov-chip-label">edges</span>
+          </div>
         </div>
-        <div className="ov-header-chips">
-          <span className="ov-chip">{nodeCount}</span>
-          <span className="ov-chip-label">nodes</span>
-          <span className="ov-chip">{edgeCount}</span>
-          <span className="ov-chip-label">edges</span>
+
+        {isEmpty ? (
+          <div className="ov-empty">Add nodes to the canvas to start.</div>
+        ) : (
+          <>
+            {/* Latency */}
+            <div className={`ov-card ov-card--metric${isHighLatency ? ' ov-card--warn' : ''}`}>
+              <div className="ov-metric-label">LATENCY</div>
+              <div className="ov-metric-row">
+                <span className="ov-metric-value">
+                  {result.totalLatencyMs > 0 ? `${result.totalLatencyMs} ms` : '—'}
+                </span>
+                {isHighLatency && <span className="ov-warn-arrow">∧</span>}
+              </div>
+              <div className="ov-metric-sub2">p99 &nbsp;{result.p99LatencyMs} ms</div>
+            </div>
+
+            {/* Throughput */}
+            <div className="ov-card ov-card--metric">
+              <div className="ov-metric-label">THROUGHPUT</div>
+              <div className="ov-metric-row">
+                <span className="ov-metric-value">{formatNumber(result.throughputRps)}</span>
+                <span className="ov-metric-sub">rps</span>
+              </div>
+              <div className="ov-metric-sub2">{formatNumber(result.maxConcurrentUsers)} max users</div>
+            </div>
+
+            {/* Bottleneck */}
+            <div className={`ov-card ov-card--metric${hasBottleneck ? ' ov-card--alert' : ''}`}>
+              <div className="ov-metric-label">BOTTLENECK</div>
+              <div className="ov-metric-row">
+                <span className="ov-metric-value ov-metric-value--md">
+                  {result.bottleneckLabel ?? 'None detected'}
+                </span>
+                {hasBottleneck && <span className="ov-alert-dot" />}
+              </div>
+            </div>
+
+            {/* Hourly cost */}
+            <div className="ov-card ov-card--metric">
+              <div className="ov-metric-label">HOURLY COST</div>
+              <div className="ov-metric-row">
+                <span className="ov-metric-value">
+                  {result.costPerHour > 0 ? `$${result.costPerHour.toFixed(2)}` : '—'}
+                </span>
+                {result.costPerHour > 0 && <span className="ov-metric-sub">/ AWS</span>}
+              </div>
+              {result.costPerHour > 0 && (
+                <div className="ov-metric-sub2">${result.costPerMillionRequests.toFixed(3)} / 1M req</div>
+              )}
+            </div>
+          </>
+        )}
+
+        <button className="ov-analyse-btn" onClick={onAnalyse} disabled={isEmpty}>
+          Run Analysis
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Analysis Panel (placeholder – backend engine coming later) ── */
+function AnalysisPanel({
+  result,
+  onClose,
+}: {
+  result: AnalysisResult;
+  onClose: () => void;
+}) {
+  return (
+    <div className="analysis-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="analysis-panel">
+        <div className="analysis-header">
+          <h2>Architecture Analysis</h2>
+          <button className="analysis-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="analysis-metrics">
+          <div className="metric-card metric-latency">
+            <div className="metric-value">{result.totalLatencyMs} ms</div>
+            <div className="metric-label">Avg Latency</div>
+          </div>
+          <div className="metric-card metric-p99">
+            <div className="metric-value">{result.p99LatencyMs} ms</div>
+            <div className="metric-label">p99 Latency</div>
+          </div>
+          <div className="metric-card metric-throughput">
+            <div className="metric-value">{formatNumber(result.throughputRps)}</div>
+            <div className="metric-label">Max RPS</div>
+          </div>
+          <div className="metric-card metric-users">
+            <div className="metric-value">{formatNumber(result.maxConcurrentUsers)}</div>
+            <div className="metric-label">Max Concurrent Users</div>
+          </div>
+          <div className="metric-card metric-cost">
+            <div className="metric-value">${result.costPerHour.toFixed(2)}</div>
+            <div className="metric-label">Cost / Hour</div>
+          </div>
+          <div className="metric-card metric-costmil">
+            <div className="metric-value">${result.costPerMillionRequests.toFixed(3)}</div>
+            <div className="metric-label">Cost / 1M Requests</div>
+          </div>
+        </div>
+
+        <div className="analysis-placeholder">
+          <div className="analysis-placeholder-icon">🔧</div>
+          <div className="analysis-placeholder-title">Deep analysis coming soon</div>
+          <div className="analysis-placeholder-body">
+            Critical path, suggestions, cloud cost comparison, and distribution
+            gain analysis will be powered by the backend engine in a later iteration.
+          </div>
         </div>
       </div>
-
-      {isEmpty ? (
-        <div className="ov-empty">Add nodes to the canvas to start.</div>
-      ) : (
-        <>
-          {/* Latency */}
-          <div className={`ov-card ov-card--metric${isHighLatency ? ' ov-card--warn' : ''}`}>
-            <div className="ov-metric-label">LATENCY</div>
-            <div className="ov-metric-row">
-              <span className="ov-metric-value">
-                {result.totalLatencyMs > 0 ? `${result.totalLatencyMs} ms` : '—'}
-              </span>
-              {isHighLatency && <span className="ov-warn-arrow">∧</span>}
-            </div>
-          </div>
-
-          {/* Bottleneck */}
-          <div className={`ov-card ov-card--metric${hasBottleneck ? ' ov-card--alert' : ''}`}>
-            <div className="ov-metric-label">BOTTLENECK</div>
-            <div className="ov-metric-row">
-              <span className="ov-metric-value ov-metric-value--md">
-                {result.bottleneckLabel ?? 'None detected'}
-              </span>
-              {hasBottleneck && <span className="ov-alert-dot" />}
-            </div>
-          </div>
-
-          {/* Hourly cost */}
-          <div className="ov-card ov-card--metric">
-            <div className="ov-metric-label">HOURLY COST</div>
-            <div className="ov-metric-row">
-              <span className="ov-metric-value">
-                {result.costPerHour > 0 ? `$${result.costPerHour.toFixed(2)}` : '—'}
-              </span>
-              {result.costPerHour > 0 && <span className="ov-metric-sub">/ AWS</span>}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -718,7 +796,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   });
 
   /* ── analysis ────────────────────────────────────────────── */
-  // analysis state removed – overview panel uses latestAnalysis directly
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(420);
   const resizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
@@ -1051,6 +1129,8 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     [viewport, getSvgRect, persist, edges]
   );
 
+  const runAnalysis = useCallback(() => setShowAnalysis(true), []);
+
   /* ── Render ──────────────────────────────────────────────── */
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
   const hasInspector = true;
@@ -1252,6 +1332,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             result={latestAnalysis}
             nodeCount={nodes.length}
             edgeCount={edges.length}
+            onAnalyse={runAnalysis}
           />
         )}
       </div>
@@ -1278,6 +1359,11 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             : undefined
         }
       />
+
+      {/* Analysis Panel */}
+      {showAnalysis && (
+        <AnalysisPanel result={latestAnalysis} onClose={() => setShowAnalysis(false)} />
+      )}
 
       {/* Instance Picker modal */}
       {instancePickerNodeId && (() => {
