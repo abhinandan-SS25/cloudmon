@@ -514,261 +514,65 @@ function ArchitectureOverviewPanel({
   nodeCount: number;
   edgeCount: number;
 }) {
-  const efficiency = result.costPerHour > 0 ? result.throughputRps / result.costPerHour : null;
-  const warningsCount = result.warnings?.length ?? 0;
-  const suggestions = result.suggestions ?? [];
-  const criticalPath = result.criticalPath ?? [];
+  const isHighLatency = result.totalLatencyMs > 500;
+  const hasBottleneck = Boolean(result.bottleneckLabel);
+  const isEmpty = nodeCount === 0;
 
   return (
-    <div className="inspector inspector--summary overview">
-      <div className="overview-header">
-        <div className="overview-title">
-          <span className="overview-icon">🛰</span>
-          <div>
-            <div className="overview-kicker">Architecture Snapshot</div>
-            <div className="overview-name">Workspace Overview</div>
-          </div>
-        </div>
-        <div className="overview-chips">
-          <span className="overview-chip">{nodeCount} nodes</span>
-          <span className="overview-chip">{edgeCount} edges</span>
-          <span className="overview-chip overview-chip--accent">{formatNumber(result.maxConcurrentUsers)} users</span>
-        </div>
-      </div>
-
-      <div className="overview-grid">
-        <div className="overview-card overview-card--latency">
-          <div className="ov-label">Latency</div>
-          <div className="ov-value">{result.totalLatencyMs} ms</div>
-          <div className="ov-sub">p99 {result.p99LatencyMs} ms</div>
-        </div>
-
-        <div className="overview-card overview-card--throughput">
-          <div className="ov-label">Throughput</div>
-          <div className="ov-value">{formatNumber(result.throughputRps)}</div>
-          <div className="ov-sub">max rps • users {formatNumber(result.maxConcurrentUsers)}</div>
-        </div>
-
-        <div className="overview-card overview-card--cost">
-          <div className="ov-label">Cost</div>
-          <div className="ov-value">${result.costPerHour.toFixed(2)}</div>
-          <div className="ov-sub">per hour • ${result.costPerMillionRequests.toFixed(3)} / 1M req</div>
-        </div>
-
-        <div className="overview-card overview-card--bottleneck">
-          <div className="ov-label">Bottleneck</div>
-          <div className="ov-value">
-            {result.bottleneckLabel ? result.bottleneckLabel : 'None detected'}
-          </div>
-          <div className="ov-sub">warnings {warningsCount}</div>
-        </div>
-
-        {efficiency && (
-          <div className="overview-card overview-card--efficiency">
-            <div className="ov-label">Efficiency</div>
-            <div className="ov-value">{efficiency.toFixed(1)} rps / $/hr</div>
-            <div className="ov-sub">higher is better</div>
-          </div>
-        )}
-
-        <div className="overview-card overview-card--cloud">
-          <div className="ov-label">Cloud costs</div>
-          <div className="overview-clouds">
-            {(['aws', 'gcp', 'azure'] as const).map((p) => (
-              <div key={p} className="cloud-chip">
-                <span className="cloud-chip-label">{p.toUpperCase()}</span>
-                <span className="cloud-chip-value">${result.cloudCosts[p].costPerHour.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="overview-critical">
-        <div className="ov-label">Critical Path</div>
-        <div className="overview-path">
-          {criticalPath.length > 0 ? (
-            criticalPath.map((id, i) => (
-              <React.Fragment key={id}>
-                <span className={`path-node${result.bottleneckNodeId === id ? ' path-node--alert' : ''}`}>
-                  {id}
-                  {result.bottleneckNodeId === id && ' ⚠'}
-                </span>
-                {i < criticalPath.length - 1 && <span className="path-arrow">→</span>}
-              </React.Fragment>
-            ))
-          ) : (
-            <span className="overview-dim">Run analysis to see bottlenecks.</span>
-          )}
-        </div>
-      </div>
-
-      <div className="overview-lists">
+    <div className="ov-panel">
+      {/* Header card */}
+      <div className="ov-card ov-card--header">
+        <span className="ov-header-dot" />
         <div>
-          <div className="ov-label">Warnings</div>
-          <ul className="overview-list">
-            {(result.warnings && result.warnings.length > 0
-              ? result.warnings.slice(0, 3)
-              : ['No warnings found.'])
-              .map((w, i) => (
-                <li key={`w-${i}`}>{w}</li>
-              ))}
-          </ul>
+          <div className="ov-header-title">Workspace</div>
+          <div className="ov-header-sub">Overview</div>
         </div>
-        <div>
-          <div className="ov-label">Suggestions</div>
-          <ul className="overview-list">
-            {(suggestions.length > 0 ? suggestions.slice(0, 3) : ['Select a node to refine deployment settings.'])
-              .map((s, i) => (
-                <li key={`s-${i}`}>{s}</li>
-              ))}
-          </ul>
+        <div className="ov-header-chips">
+          <span className="ov-chip">{nodeCount}</span>
+          <span className="ov-chip-label">nodes</span>
+          <span className="ov-chip">{edgeCount}</span>
+          <span className="ov-chip-label">edges</span>
         </div>
       </div>
-    </div>
-  );
-}
 
-
-/* ── Analysis Panel ───────────────────────────────────────────── */
-function AnalysisPanel({
-  result,
-  onClose,
-}: {
-  result: AnalysisResult;
-  onClose: () => void;
-}) {
-  return (
-    <div className="analysis-overlay">
-      <div className="analysis-panel">
-        <div className="analysis-header">
-          <h2>Architecture Analysis</h2>
-          <button className="analysis-close" onClick={onClose}>✕</button>
-        </div>
-
-        {/* Key metrics */}
-        <div className="analysis-metrics">
-          <div className="metric-card metric-latency">
-            <div className="metric-value">{result.totalLatencyMs} ms</div>
-            <div className="metric-label">Avg Latency</div>
-          </div>
-          <div className="metric-card metric-p99">
-            <div className="metric-value">{result.p99LatencyMs} ms</div>
-            <div className="metric-label">p99 Latency</div>
-          </div>
-          <div className="metric-card metric-throughput">
-            <div className="metric-value">{formatNumber(result.throughputRps)}</div>
-            <div className="metric-label">Max RPS</div>
-          </div>
-          <div className="metric-card metric-users">
-            <div className="metric-value">{formatNumber(result.maxConcurrentUsers)}</div>
-            <div className="metric-label">Max Concurrent Users</div>
-          </div>
-          <div className="metric-card metric-cost">
-            <div className="metric-value">${result.costPerHour.toFixed(2)}</div>
-            <div className="metric-label">Cost / Hour</div>
-          </div>
-          <div className="metric-card metric-costmil">
-            <div className="metric-value">${result.costPerMillionRequests.toFixed(3)}</div>
-            <div className="metric-label">Cost / 1M Requests</div>
-          </div>
-        </div>
-
-        {/* Critical path */}
-        {result.criticalPath.length > 0 && (
-          <div className="analysis-section">
-            <h3>Critical Path</h3>
-            <p className="analysis-dimtext">
-              The slowest route through your architecture (determines max latency).
-            </p>
-            <div className="critical-path">
-              {result.criticalPath.map((id, i) => (
-                <React.Fragment key={id}>
-                  <span className={`cp-node${result.bottleneckNodeId === id ? ' cp-bottleneck' : ''}`}>
-                    {id}
-                    {result.bottleneckNodeId === id && ' ⚠'}
-                  </span>
-                  {i < result.criticalPath.length - 1 && (
-                    <span className="cp-arrow">→</span>
-                  )}
-                </React.Fragment>
-              ))}
+      {isEmpty ? (
+        <div className="ov-empty">Add nodes to the canvas to start.</div>
+      ) : (
+        <>
+          {/* Latency */}
+          <div className={`ov-card ov-card--metric${isHighLatency ? ' ov-card--warn' : ''}`}>
+            <div className="ov-metric-label">LATENCY</div>
+            <div className="ov-metric-row">
+              <span className="ov-metric-value">
+                {result.totalLatencyMs > 0 ? `${result.totalLatencyMs} ms` : '—'}
+              </span>
+              {isHighLatency && <span className="ov-warn-arrow">∧</span>}
             </div>
-            {result.bottleneckLabel && (
-              <div className="analysis-bottleneck-note">
-                ⚠ Bottleneck: <strong>{result.bottleneckLabel}</strong>
-              </div>
-            )}
           </div>
-        )}
 
-        {/* Distribution Gain */}
-        {result.distributionGain && (
-          <div className="analysis-section analysis-distribution">
-            <h3>🚀 Distribution Analysis – Monolith vs. Microservices</h3>
-            <div className="dist-comparison">
-              <div className="dist-col dist-current">
-                <div className="dist-col-title">Current (Monolith)</div>
-                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.currentMaxUsers)}</strong></div>
-                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.currentLatencyMs} ms</strong></div>
-                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.currentCostPerHour.toFixed(2)}</strong></div>
-              </div>
-              <div className="dist-arrow">⟹</div>
-              <div className="dist-col dist-distributed">
-                <div className="dist-col-title">Distributed (Microservices + Kafka)</div>
-                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.distributedMaxUsers)}</strong></div>
-                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.distributedLatencyMs} ms</strong></div>
-                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.distributedCostPerHour.toFixed(2)}</strong></div>
-              </div>
+          {/* Bottleneck */}
+          <div className={`ov-card ov-card--metric${hasBottleneck ? ' ov-card--alert' : ''}`}>
+            <div className="ov-metric-label">BOTTLENECK</div>
+            <div className="ov-metric-row">
+              <span className="ov-metric-value ov-metric-value--md">
+                {result.bottleneckLabel ?? 'None detected'}
+              </span>
+              {hasBottleneck && <span className="ov-alert-dot" />}
             </div>
-            <p className="dist-recommendation">{result.distributionGain.recommendation}</p>
           </div>
-        )}
 
-        {/* Cloud Cost Comparison */}
-        {(result.cloudCosts.aws.costPerHour > 0 || result.cloudCosts.gcp.costPerHour > 0) && (
-          <div className="analysis-section">
-            <h3>☁️ Cloud Cost Comparison</h3>
-            <p className="analysis-dimtext">Estimated hourly cost for this architecture on each provider.</p>
-            <div className="cloud-comparison">
-              {(['aws', 'gcp', 'azure'] as const).map((p) => {
-                const c = result.cloudCosts[p];
-                const labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
-                const colors = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
-                return (
-                  <div key={p} className="cloud-col">
-                    <div className="cloud-badge" style={{ background: colors[p] }}>{labels[p]}</div>
-                    <div className="cloud-metric">
-                      <span className="cloud-metric-value">${c.costPerHour.toFixed(2)}</span>
-                      <span className="cloud-metric-label">/ hour</span>
-                    </div>
-                    <div className="cloud-metric">
-                      <span className="cloud-metric-value">${c.costPerMillion.toFixed(3)}</span>
-                      <span className="cloud-metric-label">/ 1M req</span>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Hourly cost */}
+          <div className="ov-card ov-card--metric">
+            <div className="ov-metric-label">HOURLY COST</div>
+            <div className="ov-metric-row">
+              <span className="ov-metric-value">
+                {result.costPerHour > 0 ? `$${result.costPerHour.toFixed(2)}` : '—'}
+              </span>
+              {result.costPerHour > 0 && <span className="ov-metric-sub">/ AWS</span>}
             </div>
-            <p className="analysis-dimtext" style={{ marginTop: 8 }}>
-              * Costs use catalog baselines (AWS) with GCP ≈ 12% and Azure ≈ 3% discounts applied.
-              Override individual node costs in the inspector for precise estimates.
-            </p>
           </div>
-        )}
-
-        {/* Suggestions */}
-        {result.suggestions.length > 0 && (
-          <div className="analysis-section">
-            <h3>Suggestions</h3>
-            <ul className="analysis-suggestions">
-              {result.suggestions.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -914,8 +718,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   });
 
   /* ── analysis ────────────────────────────────────────────── */
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  // analysis state removed – overview panel uses latestAnalysis directly
   const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
   const [inspectorWidth, setInspectorWidth] = useState(420);
   const resizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
@@ -1248,12 +1051,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     [viewport, getSvgRect, persist, edges]
   );
 
-  /* ── Run analysis ─────────────────────────────────────────── */
-  const runAnalysis = useCallback(() => {
-    setAnalysisResult(latestAnalysis);
-    setShowAnalysis(true);
-  }, [latestAnalysis]);
-
   /* ── Render ──────────────────────────────────────────────── */
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
   const hasInspector = true;
@@ -1292,15 +1089,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             </div>
           </div>
         </div>
-        <div className='toolbar-center'>
-          <button
-            className="toolbar-btn toolbar-btn-analyze"
-            onClick={runAnalysis}
-            title="Analyse this canvas"
-          >
-            Analyse
-          </button>
-        </div>
+
       </div>
 
       <div className='view-shelf'>
@@ -1489,11 +1278,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
             : undefined
         }
       />
-
-      {/* Analysis Panel */}
-      {showAnalysis && analysisResult && (
-        <AnalysisPanel result={analysisResult} onClose={() => setShowAnalysis(false)} />
-      )}
 
       {/* Instance Picker modal */}
       {instancePickerNodeId && (() => {

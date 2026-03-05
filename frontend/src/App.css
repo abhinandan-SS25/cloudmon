@@ -769,13 +769,7 @@ body {
   border-color: var(--accent);
   transform: translateY(-1px);
 }
-.toolbar-btn-analyze {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-}
-.toolbar-btn-analyze:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
 .toolbar-zoom {
   display: inline-flex;
   align-items: center;
@@ -1103,132 +1097,132 @@ body {
   margin-bottom: 18px;
 }
 
-/* ── Overview (Architecture snapshot) ───────────────────────── */
-.overview { display: flex; flex-direction: column; gap: 12px; }
-.overview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px 4px;
-}
-.overview-title { display: flex; align-items: center; gap: 10px; }
-.overview-icon {
-  width: 42px; height: 42px; border-radius: 12px;
-  display: grid; place-items: center;
-  font-size: 18px; font-weight: 800;
-  background: var(--accent);
-  color: #f6fbff;
-  box-shadow: 0 10px 26px rgba(95,126,139,0.24);
-}
-.overview-kicker {
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  font-weight: 700;
-}
-.overview-name { font-size: 1rem; font-weight: 800; color: var(--text); }
-.overview-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.overview-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 10px; border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.86);
-  font-size: 0.7rem; font-weight: 700; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: 0.05em;
-  box-shadow: 0 4px 12px rgba(15,23,42,0.08);
-}
-.overview-chip--accent {
-  border-color: rgba(15,118,110,0.35);
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 0 18px 6px;
-}
-.overview-card {
-  border-radius: 14px;
-  padding: 12px 14px;
-  color: #0f172a;
-  border: 1px solid var(--border);
-  box-shadow: 0 12px 30px rgba(15,23,42,0.08);
-  background: var(--surface);
-  position: relative;
-  overflow: hidden;
-}
-.overview-card:before {
-  content: none;
-}
-.ov-label { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); letter-spacing: 0.05em; text-transform: uppercase; }
-.ov-value { font-size: 1.4rem; font-weight: 800; margin-top: 4px; color: var(--text); }
-.ov-sub { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
-
-.overview-card--latency { background: #fdf1e3; border-color: #e3c8a5; }
-.overview-card--throughput { background: #e7f1f0; border-color: #aec9c3; }
-.overview-card--cost { background: #f1eff7; border-color: #c5bedf; }
-.overview-card--bottleneck { background: #f9f2da; border-color: #d6c183; }
-.overview-card--efficiency { background: #eef2fa; border-color: #b4c2e3; }
-.overview-card--cloud { grid-column: span 2; background: #eff3f7; border-color: #b5c3d8; }
-
-.overview-clouds {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
-}
-.cloud-chip {
-  background: rgba(255,255,255,0.9);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px;
-  text-align: center;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
-}
-.cloud-chip-label { display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-dim); letter-spacing: 0.05em; }
-.cloud-chip-value { display: block; font-size: 0.95rem; font-weight: 800; color: var(--text); }
-
-.overview-critical { padding: 4px 18px 0; }
-.overview-path {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-.path-node {
-  padding: 4px 8px;
-  border-radius: 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-size: 0.8rem;
-  color: var(--text);
-}
-.path-node--alert { background: #fef2f2; border-color: #fecaca; color: var(--danger); font-weight: 700; }
-.path-arrow { font-size: 0.8rem; color: var(--text-dim); margin: 0 2px; }
-.overview-dim { color: var(--text-dim); font-size: 0.82rem; }
-
-.overview-lists {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 2px 18px 14px;
-}
-.overview-list {
-  list-style: disc;
-  margin: 6px 0 0 16px;
-  padding: 0;
-  color: var(--text);
-  font-size: 0.82rem;
+/* ── Overview cards ──────────────────────────────────────────── */
+.ov-panel {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 18px;
+}
+
+/* Header card */
+.ov-card--header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+}
+.ov-header-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+}
+.ov-header-title {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.ov-header-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.ov-header-chips {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
-.overview-list li { line-height: 1.4; }
+.ov-chip {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.ov-chip-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+/* Metric cards */
+.ov-card--metric {
+  padding: 12px 14px 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+  transition: border-color 0.15s;
+}
+.ov-card--warn {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+.ov-card--alert {
+  border-color: #f87171;
+  background: #fff5f5;
+}
+.ov-metric-label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.ov-metric-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ov-metric-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.ov-metric-value--md {
+  font-size: 1.1rem;
+}
+.ov-warn-arrow {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #f59e0b;
+  line-height: 1;
+}
+.ov-alert-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
+}
+.ov-metric-sub {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  align-self: flex-end;
+}
+
+/* Empty state */
+.ov-empty {
+  padding: 24px 16px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  text-align: center;
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.5);
+}
 .inspector-header {
   position: sticky;
   top: 0;
@@ -1559,73 +1553,7 @@ body {
 }
 .ctx-divider { height: 1px; background: var(--border); margin: 6px 2px; }
 
-/* ── Analysis Panel ───────────────────────────────────────────── */
-.analysis-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-  z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px;
-}
-.analysis-panel {
-  background: var(--surface); border-radius: 20px; box-shadow: var(--shadow-lg);
-  width: 100%; max-width: 780px; max-height: 85vh; overflow-y: auto;
-  display: flex; flex-direction: column; scrollbar-width: thin;
-}
-.analysis-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; background: var(--surface); z-index: 1;
-}
-.analysis-header h2 { font-size: 1.2rem; font-weight: 700; }
-.analysis-close { background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 1rem; padding: 6px; border-radius: 8px; transition: all 0.1s; }
-.analysis-close:hover { background: var(--surface2); color: var(--text); }
-.analysis-metrics { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border); }
-.metric-card { padding: 20px; text-align: center; border-right: 1px solid var(--border); }
-.metric-card:nth-child(3n) { border-right: none; }
-.metric-card:nth-child(n+4) { border-top: 1px solid var(--border); }
-.metric-value { font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1.2; }
-.metric-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; font-weight: 500; }
-.metric-latency .metric-value { color: #2563eb; }
-.metric-p99 .metric-value { color: #7c3aed; }
-.metric-throughput .metric-value { color: var(--accent); }
-.metric-users .metric-value { color: #16a34a; }
-.metric-cost .metric-value { color: #d97706; }
-.metric-costmil .metric-value { color: #b45309; }
-.analysis-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
-.analysis-section:last-child { border-bottom: none; }
-.analysis-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
-.analysis-dimtext { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 12px; }
-.critical-path {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
-  padding: 10px; background: var(--bg); border-radius: var(--radius); margin-bottom: 10px;
-}
-.cp-node {
-  padding: 3px 10px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 20px; font-size: 0.78rem; font-weight: 500; color: var(--text);
-}
-.cp-node.cp-bottleneck { background: #fef3c7; border-color: var(--warn); color: #92400e; }
-.cp-arrow { color: var(--text-dim); font-size: 0.9rem; }
-.analysis-bottleneck-note {
-  font-size: 0.82rem; color: #92400e; background: #fef3c7;
-  padding: 8px 12px; border-radius: var(--radius); border-left: 3px solid var(--warn);
-}
-.analysis-distribution { background: var(--surface2); }
-.dist-comparison { display: flex; align-items: center; gap: 16px; margin: 12px 0; }
-.dist-col { flex: 1; padding: 14px; border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--surface); }
-.dist-col.dist-distributed { border-color: var(--accent); background: var(--accent-light); }
-.dist-col-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 10px; }
-.dist-col.dist-distributed .dist-col-title { color: var(--accent); }
-.dist-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.82rem; border-bottom: 1px solid var(--border); }
-.dist-row:last-child { border-bottom: none; }
-.dist-row span { color: var(--text-dim); }
-.dist-row strong { color: var(--text); font-weight: 600; }
-.dist-arrow { font-size: 1.8rem; color: var(--accent); flex-shrink: 0; }
-.dist-recommendation { font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; background: var(--surface2); padding: 10px 14px; border-radius: var(--radius); border-left: 3px solid var(--accent); }
-.analysis-suggestions { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.analysis-suggestions li {
-  font-size: 0.85rem; color: var(--text-dim); padding: 8px 12px;
-  background: var(--surface2); border-radius: var(--radius);
-  border-left: 3px solid var(--accent); line-height: 1.5;
-}
-.analysis-suggestions li:first-child { color: var(--text); border-left-color: var(--warn); background: #fef3c7; }
+
 
 /* ══════════════════════════════════════════════════════════════
    EXPLORER PANEL  (Stage Shelf)
@@ -2110,34 +2038,7 @@ body {
   border: 1px solid #30363d;
 }
 
-/* ── Cloud comparison in analysis panel ─────────────────────── */
-.cloud-comparison {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-.cloud-col {
-  flex: 1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.cloud-badge {
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: #fff;
-  border-radius: 5px;
-  padding: 2px 8px;
-  letter-spacing: 0.06em;
-}
-.cloud-metric { text-align: center; }
-.cloud-metric-value { font-size: 1rem; font-weight: 700; color: var(--text); display: block; }
-.cloud-metric-label { font-size: 0.68rem; color: var(--text-dim); }
+
 
 /* Cloud provider selector strip in Stage Shelf */
 .cloud-provider-selector {
@@ -2330,35 +2231,7 @@ body {
 .cloud-tab-gcp:hover  { color: #4285F4; border-color: #4285F4; }
 .cloud-tab-azure:hover { color: #0078D4; border-color: #0078D4; }
 
-/* ── Cloud Cost Comparison (Analysis Panel) ────────────────── */
-.cloud-comparison {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 10px;
-}
-.cloud-col {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 10px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  text-align: center;
-}
-.cloud-badge {
-  padding: 3px 14px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #fff;
-}
-.cloud-metric { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.cloud-metric-value { font-size: 1rem; font-weight: 700; color: var(--text); }
-.cloud-metric-label { font-size: 0.7rem; color: var(--text-dim); }
+
 
 /* ══════════════════════════════════════════════════════════════
    INSTANCE PICKER SIDE PANEL
