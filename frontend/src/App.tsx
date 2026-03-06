@@ -20,6 +20,78 @@ import catalog, { PALETTE_SECTIONS } from './data/componentCatalog';
    Logo → home, one dropdown per section category, Manage menu.
    ───────────────────────────────────────────────────────────── */
 
+/** Node-page service palette — organised by technology stack */
+const NODE_PALETTE_SECTIONS = [
+  {
+    title: 'Docker',
+    color: '#0099e6',
+    items: [
+      { key: 'docker',  name: 'Container',     emoji: '🐳', desc: 'Generic Docker container' },
+      { key: 'docker',  name: 'Web Server',     emoji: '🌐', desc: 'nginx / apache front-end' },
+      { key: 'docker',  name: 'App Server',     emoji: '⚙️', desc: 'Backend application process' },
+      { key: 'docker',  name: 'Build Stage',    emoji: '🏗️', desc: 'Multi-stage build container' },
+      { key: 'sidecar', name: 'Compose Stack',  emoji: '📋', desc: 'docker-compose service group' },
+      { key: 'docker',  name: 'Docker Network', emoji: '🔗', desc: 'Custom bridge / overlay network' },
+    ],
+  },
+  {
+    title: 'Kubernetes',
+    color: '#326CE5',
+    items: [
+      { key: 'k8s_pod',    name: 'Pod',         emoji: '⬡',  desc: 'Smallest deployable K8s unit' },
+      { key: 'k8s_deploy', name: 'Deployment',  emoji: '🚀', desc: 'Managed stateless workload' },
+      { key: 'k8s_deploy', name: 'StatefulSet', emoji: '🗄️',  desc: 'Ordered, stable pod identity' },
+      { key: 'k8s_deploy', name: 'DaemonSet',   emoji: '🔄', desc: 'One pod per node' },
+      { key: 'k8s_deploy', name: 'ReplicaSet',  emoji: '📦', desc: 'Maintain replica count' },
+      { key: 'lb',         name: 'K8s Service', emoji: '🔀', desc: 'ClusterIP / NodePort / LB' },
+      { key: 'lb',         name: 'Ingress',     emoji: '↖️',  desc: 'HTTP routing rules' },
+      { key: 'sidecar',    name: 'ConfigMap',   emoji: '🔧', desc: 'Non-secret configuration data' },
+      { key: 'sidecar',    name: 'Secret',      emoji: '🔐', desc: 'Encrypted config / credentials' },
+      { key: 'lb',         name: 'Namespace',   emoji: '🗂️',  desc: 'Logical cluster partition' },
+    ],
+  },
+  {
+    title: 'Scheduling',
+    color: '#7c3aed',
+    items: [
+      { key: 'k8s_cronjob', name: 'CronJob',          emoji: '⏰', desc: 'Cron-based periodic job' },
+      { key: 'k8s_cronjob', name: 'One-Shot Job',      emoji: '▶️',  desc: 'Run once to completion' },
+      { key: 'k8s_cronjob', name: 'Background Worker', emoji: '⚙️', desc: 'Long-running async worker' },
+      { key: 'queue',       name: 'Rate Limiter',      emoji: '🚦', desc: 'Token-bucket rate control' },
+      { key: 'k8s_cronjob', name: 'Retry Queue',       emoji: '🔁', desc: 'Dead-letter retry processor' },
+      { key: 'k8s_cronjob', name: 'Scheduled Report',  emoji: '📊', desc: 'Nightly / weekly report job' },
+    ],
+  },
+  {
+    title: 'Networking',
+    color: '#059669',
+    items: [
+      { key: 'lb',      name: 'Load Balancer',   emoji: '⚖️',  desc: 'Distribute traffic across pods' },
+      { key: 'lb',      name: 'API Gateway',     emoji: '🌐', desc: 'Managed API entry point' },
+      { key: 'sidecar', name: 'Reverse Proxy',   emoji: '🔄', desc: 'nginx/Caddy upstream proxy' },
+      { key: 'sidecar', name: 'Service Mesh',    emoji: '🕸️',  desc: 'Istio / Linkerd sidecar' },
+      { key: 'sidecar', name: 'Envoy Proxy',     emoji: '🛰️',  desc: 'High-perf L7 proxy' },
+      { key: 'sidecar', name: 'WAF',             emoji: '🛡️',  desc: 'Web application firewall' },
+      { key: 'lb',      name: 'TLS Terminator',  emoji: '🔒', desc: 'SSL offload at edge' },
+      { key: 'sidecar', name: 'Circuit Breaker', emoji: '⚡', desc: 'Resilience / fallback pattern' },
+      { key: 'lb',      name: 'CDN Edge',        emoji: '🌍', desc: 'Content delivery / caching' },
+    ],
+  },
+  {
+    title: 'Messaging',
+    color: '#e53e3e',
+    items: [
+      { key: 'queue', name: 'Queue Worker',     emoji: '📨', desc: 'FIFO task consumer' },
+      { key: 'queue', name: 'Event Bus',        emoji: '🔔', desc: 'CloudEvents / NATS backbone' },
+      { key: 'queue', name: 'Pub/Sub Service',  emoji: '📢', desc: 'Fan-out topic subscription' },
+      { key: 'queue', name: 'Message Broker',   emoji: '🔀', desc: 'RabbitMQ / ActiveMQ broker' },
+      { key: 'queue', name: 'Stream Processor', emoji: '📊', desc: 'Kafka / Kinesis pipeline' },
+      { key: 'queue', name: 'Dead Letter Queue',emoji: '💀', desc: 'Failed message holding area' },
+      { key: 'queue', name: 'Webhook Relay',    emoji: '🪝', desc: 'Inbound webhook fan-out' },
+    ],
+  },
+];
+
 /** Flat search index built once from the catalog. */
 const SEARCH_INDEX: Array<{ key: string; sectionTitle: string }> =
   PALETTE_SECTIONS.flatMap((s) =>
@@ -43,7 +115,11 @@ function searchComponents(query: string) {
 
 function EditorHeader() {
   const navigate  = useNavigate();
+  const location  = useLocation();
   const { createNewProject } = useProjects();
+
+  /* Detect if on a Node Detail page */
+  const isNodeDetail = /\/nodes\//.test(location.pathname);
 
   /* Which dropdown is open: section title | 'manage' | null */
   const [open, setOpen] = useState<string | null>(null);
@@ -184,47 +260,89 @@ function EditorHeader() {
         )}
       </div>
 
-      {/* One dropdown per section */}
-      {PALETTE_SECTIONS.map((section) => {
-        const isOpen = open === section.title;
-        return (
-          <div key={section.title} className="hdr-menu">
-            <button
-              className={`hdr-menu-trigger${isOpen ? ' open' : ''}`}
-              onClick={() => toggle(section.title)}
-            >
-              {section.title}
-              <span className="hdr-caret">{isOpen ? '▴' : '▾'}</span>
-            </button>
-
-            {isOpen && (
-              <div className="hdr-comp-panel center">
-                {section.keys.map((key) => {
-                  const spec = catalog[key];
-                  if (!spec) return null;
-                  return (
+      {/* Multi-category palette on NodeDetail route; normal component palette otherwise */}
+      {isNodeDetail ? (
+        NODE_PALETTE_SECTIONS.map(section => {
+          const isOpen = open === section.title;
+          return (
+            <div key={section.title} className="hdr-menu">
+              <button
+                className={`hdr-menu-trigger${isOpen ? ' open' : ''}`}
+                style={{ borderBottom: isOpen ? `2px solid ${section.color}` : undefined }}
+                onClick={() => toggle(section.title)}
+              >
+                {section.title}
+                <span className="hdr-caret">{isOpen ? '▴' : '▾'}</span>
+              </button>
+              {isOpen && (
+                <div className="hdr-comp-panel node-palette">
+                  {section.items.map(item => (
                     <div
-                      key={key}
+                      key={`${item.key}-${item.name}`}
                       className="hdr-comp-item"
                       draggable
-                      onDragStart={(e) => handleDragStart(key, e)}
-                      title={spec.description}
+                      onDragStart={e => {
+                        e.dataTransfer.setData('itemKind', item.key);
+                        e.dataTransfer.setData('itemName', item.name);
+                        e.dataTransfer.effectAllowed = 'copy';
+                        setOpen(null);
+                      }}
+                      title={item.desc}
                     >
                       <span
                         className="hdr-comp-icon"
-                        style={{ background: spec.color, color: spec.textColor }}
-                      >
-                        {spec.icon}
-                      </span>
-                      <span className="hdr-comp-label">{spec.label}</span>
+                        style={{ background: `${section.color}18`, color: section.color, fontSize: '1.1rem' }}
+                      >{item.emoji}</span>
+                      <span className="hdr-comp-label">{item.name}</span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })
+      ) : (
+        PALETTE_SECTIONS.map((section) => {
+          const isOpen = open === section.title;
+          return (
+            <div key={section.title} className="hdr-menu">
+              <button
+                className={`hdr-menu-trigger${isOpen ? ' open' : ''}`}
+                onClick={() => toggle(section.title)}
+              >
+                {section.title}
+                <span className="hdr-caret">{isOpen ? '▴' : '▾'}</span>
+              </button>
+
+              {isOpen && (
+                <div className="hdr-comp-panel center">
+                  {section.keys.map((key) => {
+                    const spec = catalog[key];
+                    if (!spec) return null;
+                    return (
+                      <div
+                        key={key}
+                        className="hdr-comp-item"
+                        draggable
+                        onDragStart={(e) => handleDragStart(key, e)}
+                        title={spec.description}
+                      >
+                        <span
+                          className="hdr-comp-icon"
+                          style={{ background: spec.color, color: spec.textColor }}
+                        >
+                          {spec.icon}
+                        </span>
+                        <span className="hdr-comp-label">{spec.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
 
     </header>
   );

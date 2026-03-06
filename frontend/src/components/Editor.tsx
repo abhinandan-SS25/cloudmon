@@ -339,8 +339,6 @@ function NodeInspector({
   const spec = catalog[node.type];
   const isBottleneck = analysis?.bottleneckNodeId === node.id;
   const mode: DeploymentMode = node.config.deployment ?? 'local';
-  const cloudOptions = CLOUD_MAPPINGS[node.type] ?? [];
-  const hasCloud = cloudOptions.length > 0;
   const PROVIDER_COLORS: Record<string, string> = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
   const PROVIDER_LABELS: Record<string, string> = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
   const deploymentLabel =
@@ -349,15 +347,12 @@ function NodeInspector({
       : 'Local / Test';
   const effectiveCostPerHour = node.config.customCostPerHour ?? spec?.costPerHour ?? 0;
   const latencyMs = node.config.customLatencyMs ?? spec?.latencyMs.avg ?? 0;
-  const p99Ms = node.config.customLatencyMs ?? spec?.latencyMs.p99 ?? latencyMs;
   const throughput = node.config.customThroughputRps ?? spec?.throughputRps ?? 0;
   const totalThroughput = throughput * (node.config.instances || 1);
 
-  const updateConfig = (patch: Partial<typeof node.config>) =>
-    onUpdate({ ...node, config: { ...node.config, ...patch } });
-
   return (
     <div className="inspector inspector--node">
+      {/* ── Header ─────────────────────────────────────────── */}
       <div className="inspector-header">
         <div className="inspector-title-row">
           <span className="inspector-icon" style={{ background: spec?.color, color: spec?.textColor }}>
@@ -371,130 +366,52 @@ function NodeInspector({
         <button className="inspector-close" onClick={onClose}>✕</button>
       </div>
 
+      {/* ── Status chips ───────────────────────────────────── */}
       <div className="ni-chips">
-        <span className={`ni-chip${mode === 'cloud' ? ' ni-chip--accent' : ''}`}>
+        <span
+          className="ni-chip ni-chip--deploy"
+          style={
+            mode === 'cloud' && node.config.cloudProvider
+              ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
+              : undefined
+          }
+        >
           {mode === 'cloud' ? '☁' : '🖥'} {deploymentLabel}
         </span>
-        <span className="ni-chip">{node.config.instances} instances</span>
+        <span className="ni-chip">{latencyMs} ms</span>
+        <span className="ni-chip">{formatNumber(totalThroughput)} rps</span>
         <span className="ni-chip">${effectiveCostPerHour.toFixed(3)}/hr</span>
-        {(node.config.containers?.length ?? 0) > 0 && (
-          <span className="ni-chip ni-chip--containers" title="Internal Docker containers">
-            📦 {node.config.containers!.length} container{node.config.containers!.length !== 1 ? 's' : ''}
-          </span>
-        )}
-        {(node.config.firewallRules?.length ?? 0) > 0 && (
-          <span className="ni-chip" title="Firewall rules configured">
-            🛡 {node.config.firewallRules!.length} rule{node.config.firewallRules!.length !== 1 ? 's' : ''}
-          </span>
-        )}
       </div>
 
+      {/* ── Bottleneck warning ─────────────────────────────── */}
       {isBottleneck && (
         <div className="inspector-warning">
           ⚠ Bottleneck – lowest throughput in the critical path
         </div>
       )}
 
-      <div className="ni-grid">
-        <div className="ni-card ni-card--latency">
-          <div className="ni-label">Latency</div>
-          <div className="ni-value">{latencyMs} ms</div>
-          <div className="ni-sub">p99 {p99Ms} ms</div>
-        </div>
-        <div className="ni-card ni-card--throughput">
-          <div className="ni-label">Throughput</div>
-          <div className="ni-value">{formatNumber(totalThroughput)}</div>
-          <div className="ni-sub">total rps • per node {formatNumber(throughput)}</div>
-        </div>
-        <div className="ni-card ni-card--cost">
-          <div className="ni-label">Cost</div>
-          <div className="ni-value">${effectiveCostPerHour.toFixed(2)}</div>
-          <div className="ni-sub">per hour</div>
-        </div>
-        <div className="ni-card ni-card--deploy">
-          <div className="ni-label">Deployment</div>
-          <div className="ni-value">{mode === 'cloud' ? PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud' : 'Local / Test'}</div>
-          <div className="ni-sub">{node.config.region ?? 'no region selected'}</div>
-        </div>
-      </div>
-
+      {/* ── Quick edit ─────────────────────────────────────── */}
       <div className="ni-panel">
-        <div className="ni-panel-title">Basics</div>
+        <div className="ni-panel-title">Label</div>
         <div className="ni-fields">
           <div className="ni-field">
-            <label>Label</label>
-            <input value={node.label} onChange={(e) => onUpdate({ ...node, label: e.target.value })} />
-          </div>
-          <div className="ni-field">
-            <label>Instances</label>
             <input
-              type="number" min={1} max={100}
-              value={node.config.instances}
-              onChange={(e) => updateConfig({ instances: Number(e.target.value) || 1 })}
-            />
-          </div>
-          <div className="ni-field">
-            <label>IP Address</label>
-            <input
-              type="text"
-              placeholder="e.g. 10.0.0.1"
-              value={node.config.ip ?? ''}
-              onChange={(e) => updateConfig({ ip: e.target.value || undefined })}
+              placeholder="Node label"
+              value={node.label}
+              onChange={(e) => onUpdate({ ...node, label: e.target.value })}
             />
           </div>
         </div>
       </div>
 
-      <div className="ni-panel">
-        <div className="ni-panel-title">Deployment</div>
-        <div className="deploy-summary-row">
-          <div
-            className="deploy-summary-badge"
-            style={
-              mode === 'cloud' && node.config.cloudProvider
-                ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
-                : undefined
-            }
-          >
-            {mode === 'cloud'
-              ? `☁ ${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
-              : '🖥 Local / Test'}
-          </div>
-          {mode === 'cloud' && node.config.region && (
-            <span className="deploy-summary-region">{node.config.region}</span>
-          )}
-        </div>
-        <button
-          className="deploy-configure-btn"
-          onClick={() => onOpenPicker(node.id)}
-          title={mode === 'cloud' ? 'Configure cloud deployment' : 'Configure local settings'}
-        >
-          {mode === 'cloud' ? '☁ Configure Deployment…' : '⚙ Configure…'}
-        </button>
-      </div>
-
-      {/* ── Spec Reference ──────────────────────────────────── */}
-      {spec && (
-        <div className="ni-panel">
-          <div className="ni-panel-title">Spec Reference</div>
-          <div className="inspector-specs">
-            <div className="inspector-spec-row"><span>Avg latency</span><strong>{spec.latencyMs.avg} ms</strong></div>
-            <div className="inspector-spec-row"><span>p99 latency</span><strong>{spec.latencyMs.p99} ms</strong></div>
-            <div className="inspector-spec-row"><span>Peak throughput</span><strong>{formatNumber(spec.throughputRps)} rps</strong></div>
-            <div className="inspector-spec-row"><span>Cost/hr</span><strong>${spec.costPerHour.toFixed(3)}</strong></div>
-            <div className="inspector-spec-row"><span>Scalable</span><strong>{spec.horizontallyScalable ? '✅ Yes' : '❌ No'}</strong></div>
-          </div>
-          <div className="inspector-description">{spec.description}</div>
-        </div>
-      )}
-
+      {/* ── Open detailed editor ───────────────────────────── */}
       {onConfigureInternals && CONFIGURABLE_TYPES.has(node.type) && (
         <button
           className="inspector-configure-btn"
           onClick={onConfigureInternals}
-          title="Open the detailed internal editor for this component"
+          title="Open the node editor – configure services, firewall, storage, deployment"
         >
-          ⊞ Configure Internals →
+          ⊞ Open Node Editor →
         </button>
       )}
 
