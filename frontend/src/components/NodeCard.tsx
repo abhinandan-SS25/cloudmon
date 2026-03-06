@@ -120,7 +120,7 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCard
     <div 
       className={`node-card ${selected ? 'selected' : ''}`} 
       onMouseDown={onMouseDown} 
-      style={{ '--theme-color': spec.color } as React.CSSProperties}
+      style={{ '--theme-color': spec.color, '--theme-bg': spec.iconBg } as React.CSSProperties}
     >
         <div className="category-text">
           {spec.category}

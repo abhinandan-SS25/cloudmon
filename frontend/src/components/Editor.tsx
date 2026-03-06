@@ -1201,17 +1201,17 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
           {/* Grid pattern */}
           <defs>
             <pattern id="grid" width={40 * viewport.scale} height={40 * viewport.scale} x={viewport.x % (40 * viewport.scale)} y={viewport.y % (40 * viewport.scale)} patternUnits="userSpaceOnUse">
-              <path d={`M ${40 * viewport.scale} 0 L 0 0 0 ${40 * viewport.scale}`} fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
+              <path d={`M ${40 * viewport.scale} 0 L 0 0 0 ${40 * viewport.scale}`} fill="none" stroke="rgba(71,95,148,0.1)" strokeWidth="0.5" />
             </pattern>
             {/* Arrow marker */}
             <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
             </marker>
             <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#0f766e" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#0d9488" />
             </marker>
             <marker id="arrow-selected" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#4f6ef7" />
             </marker>
           </defs>
 
@@ -1245,7 +1245,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
                   />
                   <path
                     d={d}
-                    stroke={isSelected ? '#3b82f6' : isActive ? '#0f766e' : '#9ca3af'}
+                    stroke={isSelected ? '#4f6ef7' : isActive ? '#0d9488' : '#b0bad4'}
                     strokeWidth={isSelected ? 2.5 : 2}
                     strokeDasharray={isActive ? undefined : undefined}
                     fill="none"
