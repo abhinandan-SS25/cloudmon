@@ -43,6 +43,8 @@ export interface CanvasNodeProps {
   onDragStart:  (e: React.MouseEvent) => void;
   onConnect:    (e: React.MouseEvent) => void;
   onContextMenu:(e: React.MouseEvent) => void;
+  onInspect?:   () => void;
+  onConfigure?: () => void;
 }
 
 /* ── Component ───────────────────────────────────────────────── */
@@ -54,6 +56,8 @@ export function CanvasNode({
   onDragStart,
   onConnect,
   onContextMenu,
+  onInspect,
+  onConfigure,
 }: CanvasNodeProps) {
   const W = node.width;
   const H = node.height;
@@ -68,17 +72,21 @@ export function CanvasNode({
         height={H}
         className="canvas-node-fo"
         onContextMenu={onContextMenu}
+        overflow="visible"
+        style={{ overflow: 'visible' }}
       >
         <div
           /* @ts-ignore */
           xmlns="http://www.w3.org/1999/xhtml"
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', overflow: 'visible', position: 'relative' }}
         >
           <NodeCard
             node={node}
             selected={selected}
             isBottleneck={isBottleneck}
             onMouseDown={onDragStart}
+            onInspect={onInspect}
+            onConfigure={onConfigure}
           />
         </div>
       </foreignObject>

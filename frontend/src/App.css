@@ -783,12 +783,12 @@ body {
 .editor-toolbar {
   position: absolute;
   top: 14px;
-  right: 14px;
+  left: 14px;
   z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.96);
@@ -966,6 +966,98 @@ body {
   box-shadow: 0 2px 8px rgba(79,110,247,0.15);
 }
 .node-card:active .icon-wrapper { transform: scale(0.93); }
+
+/* ── CSS-only hover tooltip ──────────────────────────────────── */
+/* ── CSS-only hover tooltip (dark command-palette style) ──────── */
+.nc-tooltip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-5px);
+  width: 158px;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.25);
+  padding: 8px 10px 7px;
+  pointer-events: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s 0.12s;
+  z-index: 999;
+}
+.node-card:hover .nc-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s 0s;
+}
+.nc-tt-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 1px;
+}
+.nc-tt-type {
+  font-size: 0.58rem;
+  color: rgba(255,255,255,0.38);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+.nc-tt-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin-bottom: 6px;
+}
+.nc-tt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.62rem;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.nc-tt-row span { color: rgba(255,255,255,0.42); flex-shrink: 0; }
+.nc-tt-row strong { color: #e2e8f0; font-weight: 600; font-family: 'Space Mono', monospace; font-size: 0.59rem; }
+.nc-tt-warn {
+  margin-top: 4px;
+  font-size: 0.59rem;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.nc-tt-actions {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nc-tt-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.52);
+  font-size: 0.61rem;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', monospace;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  transition: background 0.1s, color 0.1s;
+}
+.nc-tt-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+.nc-tt-btn--primary { color: #60a5fa; }
+.nc-tt-btn--primary:hover { background: rgba(96,165,250,0.12); color: #93c5fd; }
 
 .badge-alert {
   position: absolute;
@@ -1163,22 +1255,14 @@ body {
 
 /* ── Node Inspector ───────────────────────────────────────────── */
 .inspector {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--inspector-w);
+  width: 100%;
   background: var(--surface);
-  border-left: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: -8px 0 32px rgba(26,32,53,0.1);
-  z-index: 250;
-  backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+  border-radius: var(--radius-lg);
 }
 
 .inspector-resize-handle {
@@ -1201,6 +1285,227 @@ body {
   height: 84px;
   border-radius: 999px;
   background: var(--border);
+}
+
+/* ── Floating right panels ────────────────────────────────────── */
+.editor-float-right {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 264px;
+  pointer-events: none;
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  overflow-x: visible;
+  scrollbar-width: none;
+}
+.editor-float-right::-webkit-scrollbar { display: none; }
+
+.editor-float-card {
+  pointer-events: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(79,110,247,0.07),
+    0 4px 14px rgba(26,32,53,0.11),
+    0 1px 4px rgba(26,32,53,0.07);
+  padding: 12px 14px;
+  opacity: 1;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+.editor-float-card:hover,
+.editor-float-card:focus-within {
+  opacity: 1;
+  box-shadow:
+    0 0 0 1.5px rgba(79,110,247,0.15),
+    0 6px 24px rgba(26,32,53,0.14),
+    0 2px 6px rgba(26,32,53,0.08);
+}
+.editor-float-card.card-dimmed {
+  opacity: 0.38;
+  box-shadow: 0 2px 8px rgba(26,32,53,0.06);
+}
+.editor-float-card.card-idle {
+  opacity: 0.48;
+  box-shadow: 0 2px 8px rgba(26,32,53,0.05);
+  transition: opacity 1s ease, box-shadow 1s ease;
+}
+
+.efc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.efc-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.efc-chips {
+  display: flex;
+  gap: 4px;
+}
+.efc-chip {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+.efc-metrics {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.efc-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border-radius: var(--radius);
+  background: var(--surface2);
+}
+.efc-metric-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.efc-metric-val.warn { color: #f59e0b; }
+.efc-metric-lbl {
+  font-size: 0.56rem;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+.efc-bottleneck {
+  font-size: 0.64rem;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  margin-bottom: 8px;
+}
+.efc-analyse-btn {
+  width: 100%;
+  padding: 7px 0;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.efc-analyse-btn:hover:not(:disabled) { background: var(--accent-dark, #3b5ce4); }
+.efc-analyse-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Node inspector floating wrapper */
+.editor-float-inspector {
+  pointer-events: auto;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow), 0 0 0 1px var(--border);
+  animation: efi-in 0.18s ease both;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+@keyframes efi-in {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Hover tooltip ────────────────────────────────────────── */
+/* Old JS-positioned tooltip — kept for reference, no longer rendered */
+.editor-hover-tooltip {
+  position: fixed;
+  z-index: 600;
+  width: 190px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi, var(--border));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(26,32,53,0.16), 0 0 0 1px rgba(79,110,247,0.1);
+  padding: 10px 12px;
+  pointer-events: none;
+  animation: eht-in 0.12s ease both;
+}
+@keyframes eht-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.eht-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.eht-icon {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  font-style: normal;
+}
+.eht-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+.eht-type {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+.eht-stats {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.eht-stat {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+.eht-warn {
+  font-size: 0.62rem;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.1);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+.eht-hint {
+  font-size: 0.56rem;
+  color: var(--text-xs);
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0.7;
 }
 
 .inspector--summary .inspector-header {
@@ -1567,6 +1872,38 @@ body {
   border-color: rgba(0,200,232,0.4);
   box-shadow: 0 0 0 2px rgba(0,200,232,0.1);
 }
+
+/* ── Spec sheet (inside NodeInspector) ─────────────────────────── */
+.ni-spec-sheet { padding-bottom: 4px; }
+.ni-spec-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ni-spec-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+.ni-spec-lbl {
+  color: var(--text-dim);
+  font-family: 'Barlow Condensed', monospace;
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ni-spec-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--text);
+  font-weight: 600;
+}
+.ni-spec-val--ov {
+  color: var(--accent);
+}
+.ni-spec-grid--override { margin-top: 2px; }
 
 .inspector-subsection {
   margin: 8px 16px 0;

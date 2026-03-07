@@ -390,6 +390,58 @@ function NodeInspector({
         </div>
       )}
 
+      {/* ── Spec sheet ─────────────────────────────────────── */}
+      {spec && (
+        <div className="ni-panel ni-spec-sheet">
+          <div className="ni-panel-title">Default Specs</div>
+          <div className="ni-spec-grid">
+            <div className="ni-spec-row">
+              <span className="ni-spec-lbl">Latency avg</span>
+              <span className="ni-spec-val">{spec.latencyMs.avg} ms</span>
+            </div>
+            <div className="ni-spec-row">
+              <span className="ni-spec-lbl">Latency p99</span>
+              <span className="ni-spec-val">{spec.latencyMs.p99} ms</span>
+            </div>
+            <div className="ni-spec-row">
+              <span className="ni-spec-lbl">Throughput</span>
+              <span className="ni-spec-val">{formatNumber(spec.throughputRps)} rps</span>
+            </div>
+            <div className="ni-spec-row">
+              <span className="ni-spec-lbl">Base cost</span>
+              <span className="ni-spec-val">${spec.costPerHour.toFixed(3)}/hr</span>
+            </div>
+          </div>
+          {(node.config.customLatencyMs !== undefined ||
+            node.config.customThroughputRps !== undefined ||
+            node.config.customCostPerHour !== undefined) && (
+            <>
+              <div className="ni-panel-title" style={{ marginTop: 10 }}>Overrides</div>
+              <div className="ni-spec-grid ni-spec-grid--override">
+                {node.config.customLatencyMs !== undefined && (
+                  <div className="ni-spec-row">
+                    <span className="ni-spec-lbl">Latency</span>
+                    <span className="ni-spec-val ni-spec-val--ov">{node.config.customLatencyMs} ms</span>
+                  </div>
+                )}
+                {node.config.customThroughputRps !== undefined && (
+                  <div className="ni-spec-row">
+                    <span className="ni-spec-lbl">Throughput</span>
+                    <span className="ni-spec-val ni-spec-val--ov">{formatNumber(node.config.customThroughputRps)} rps</span>
+                  </div>
+                )}
+                {node.config.customCostPerHour !== undefined && (
+                  <div className="ni-spec-row">
+                    <span className="ni-spec-lbl">Cost</span>
+                    <span className="ni-spec-val ni-spec-val--ov">${node.config.customCostPerHour.toFixed(3)}/hr</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Quick edit ─────────────────────────────────────── */}
       <div className="ni-panel">
         <div className="ni-panel-title">Label</div>
@@ -715,12 +767,20 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   /* ── analysis ────────────────────────────────────────────── */
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
-  const [inspectorWidth, setInspectorWidth] = useState(420);
-  const resizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({
-    active: false,
-    startX: 0,
-    startWidth: 420,
-  });
+
+  /* ── Overview card idle fade (10 s of no canvas activity) ───── */
+  const [overviewIdle, setOverviewIdle] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const resetIdleTimer = useCallback(() => {
+    setOverviewIdle(false);
+    clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setOverviewIdle(true), 10_000);
+  }, []);
+  useEffect(() => {
+    resetIdleTimer();
+    return () => clearTimeout(idleTimerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // recompute analysis whenever nodes/edges change
   const latestAnalysis = useMemo(() => analyzeCanvas({ nodes, edges }), [nodes, edges]);
@@ -840,13 +900,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   /* ── Mouse move: handle pan + node drag + connection drag ── */
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
-      if (resizeRef.current.active) {
-        const delta = resizeRef.current.startX - e.clientX;
-        const maxWidth = Math.max(340, Math.min(620, Math.floor(window.innerWidth * 0.55)));
-        const next = Math.min(maxWidth, Math.max(320, resizeRef.current.startWidth + delta));
-        setInspectorWidth(next);
-        return;
-      }
       // Pan
       if (panRef.current.active) {
         const dx = e.clientX - panRef.current.startX;
@@ -891,10 +944,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
   /* ── Mouse up ────────────────────────────────────────────── */
   const handleMouseUp = useCallback(
     (e: MouseEvent) => {
-      if (resizeRef.current.active) {
-        resizeRef.current.active = false;
-        return;
-      }
       // Finish pan
       if (panRef.current.active) {
         panRef.current.active = false;
@@ -940,16 +989,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     },
     [connectState, getSvgRect, nodes, edges, viewport, persist]
   );
-
-  const startInspectorResize = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    resizeRef.current = {
-      active: true,
-      startX: e.clientX,
-      startWidth: inspectorWidth,
-    };
-  }, [inspectorWidth]);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -1050,43 +1089,15 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
   /* ── Render ──────────────────────────────────────────────── */
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
-  const hasInspector = true;
   const hasPicker = Boolean(instancePickerNodeId);
-  const rootStyle = {
-    '--inspector-w': `${inspectorWidth}px`,
-  } as React.CSSProperties;
 
   return (
-    <div className={`editor-root${hasInspector ? ' has-inspector' : ''}${hasPicker ? ' has-picker' : ''}`} style={rootStyle}>
+    <div className={`editor-root${hasPicker ? ' has-picker' : ''}`}>
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <div className="editor-toolbar">
-        <div className="toolbar-left">
-          <span className="toolbar-phase-badge">
-            {phase === 'base' ? '🏗 Base Architecture' : '📋 Request Flow'}
-          </span>
-        </div>
-        <div className="toolbar-center">
-          <div className="toolbar-node-count center">
-            <div>
-              <div>
-              {nodes.length} 
-              </div>
-              <div className='toolbar-node-sub'>
-                nodes
-              </div>
-            </div>
-            ·
-            <div>
-              <div>
-                {edges.length}
-              </div>
-              <div  className='toolbar-node-sub'>
-                edges
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <span className="toolbar-phase-badge">
+          {phase === 'base' ? '🏗 Base' : '📋 Request'}
+        </span>
       </div>
 
       <div className='view-shelf'>
@@ -1103,7 +1114,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
       </div>
 
       {/* ── Canvas area ─────────────────────────────────────── */}
-      <div className="editor-canvas-wrap">
+      <div className="editor-canvas-wrap" onMouseMove={resetIdleTimer}>
         {/* SVG Canvas */}
         <svg
           ref={svgRef}
@@ -1215,42 +1226,89 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
                   onDragStart={(e) => startNodeDrag(node.id, e)}
                   onConnect={(e) => startConnect(node.id, e)}
                   onContextMenu={(e) => handleContextMenu(e, node.id, 'node')}
+                  onInspect={() => setSelectedNodeId(node.id)}
+                  onConfigure={
+                    CONFIGURABLE_TYPES.has(node.type) && projectId
+                      ? () => {
+                          const base = `/projects/${projectId}`;
+                          const url = requestId
+                            ? `${base}/requests/${requestId}/nodes/${node.id}`
+                            : `${base}/nodes/${node.id}`;
+                          navigate(url);
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
           </g>
         </svg>
 
-        <div className="inspector-resize-handle" onMouseDown={startInspectorResize} />
+      </div>
 
-        {/* Right dock panel: Node details or architecture overview */}
-        {selectedNode ? (
-          <NodeInspector
-            node={selectedNode}
-            analysis={latestAnalysis}
-            onUpdate={updateNode}
-            onDelete={() => deleteNode(selectedNode.id)}
-            onClose={() => setSelectedNodeId(null)}
-            onOpenPicker={(id) => setInstancePickerNodeId(id)}
-            onConfigureInternals={
-              CONFIGURABLE_TYPES.has(selectedNode.type) && projectId
-                ? () => {
-                    const base = `/projects/${projectId}`;
-                    const url = requestId
-                      ? `${base}/requests/${requestId}/nodes/${selectedNode.id}`
-                      : `${base}/nodes/${selectedNode.id}`;
-                    navigate(url);
-                  }
-                : undefined
-            }
-          />
-        ) : (
-          <ArchitectureOverviewPanel
-            result={latestAnalysis}
-            nodeCount={nodes.length}
-            edgeCount={edges.length}
-            onAnalyse={runAnalysis}
-          />
+      {/* ── Floating right panels ──────────────────────────────── */}
+      <div className="editor-float-right">
+        <div
+          className={`editor-float-card editor-float-overview${selectedNode ? ' card-dimmed' : overviewIdle ? ' card-idle' : ''}`}
+          onMouseEnter={resetIdleTimer}
+        >
+          <div className="efc-head">
+            <span className="efc-title">Architecture</span>
+            <div className="efc-chips">
+              <span className="efc-chip">{nodes.length} nodes</span>
+              <span className="efc-chip">{edges.length} edges</span>
+            </div>
+          </div>
+          {nodes.length > 0 && (
+            <div className="efc-metrics">
+              <div className="efc-metric">
+                <span className="efc-metric-val">
+                  {latestAnalysis.totalLatencyMs > 0 ? `${latestAnalysis.totalLatencyMs} ms` : '—'}
+                </span>
+                <span className="efc-metric-lbl">latency</span>
+              </div>
+              <div className="efc-metric">
+                <span className="efc-metric-val">{formatNumber(latestAnalysis.throughputRps)}</span>
+                <span className="efc-metric-lbl">rps</span>
+              </div>
+              <div className="efc-metric">
+                <span className={`efc-metric-val${latestAnalysis.totalLatencyMs > 500 ? ' warn' : ''}`}>
+                  {latestAnalysis.costPerHour > 0 ? `$${latestAnalysis.costPerHour.toFixed(2)}` : '—'}
+                </span>
+                <span className="efc-metric-lbl">$/hr</span>
+              </div>
+            </div>
+          )}
+          {latestAnalysis.bottleneckLabel && (
+            <div className="efc-bottleneck">⚠ {latestAnalysis.bottleneckLabel}</div>
+          )}
+          <button className="efc-analyse-btn" onClick={runAnalysis} disabled={nodes.length === 0}>
+            ▶ Run Analysis
+          </button>
+        </div>
+
+        {selectedNode && (
+          <div className="editor-float-inspector">
+            <NodeInspector
+              node={selectedNode}
+              analysis={latestAnalysis}
+              onUpdate={updateNode}
+              onDelete={() => deleteNode(selectedNode.id)}
+              onClose={() => setSelectedNodeId(null)}
+              onOpenPicker={(id) => setInstancePickerNodeId(id)}
+              onConfigureInternals={
+                CONFIGURABLE_TYPES.has(selectedNode.type) && projectId
+                  ? () => {
+                      const base = `/projects/${projectId}`;
+                      const url = requestId
+                        ? `${base}/requests/${requestId}/nodes/${selectedNode.id}`
+                        : `${base}/nodes/${selectedNode.id}`;
+                      navigate(url);
+                    }
+                  : undefined
+              }
+            />
+          </div>
         )}
       </div>
 

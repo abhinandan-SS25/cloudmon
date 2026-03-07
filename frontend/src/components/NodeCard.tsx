@@ -6,6 +6,15 @@
    ═══════════════════════════════════════════════════════════════ */
 import React from 'react';
 import type { CyNode } from '../types';
+import catalog from '../data/componentCatalog';
+
+/* helper */
+function fmt(n: number): string {
+  if (!isFinite(n)) return '∞';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  return n.toFixed(0);
+}
 
 /* ── Inline SVG icons ─────────────────────────────────────────── */
 const ServerIcon = ({ size = 40, className = '' }) => (
@@ -104,17 +113,23 @@ export interface NodeCardProps {
   selected: boolean;
   isBottleneck: boolean;
   onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onInspect?: () => void;
+  onConfigure?: () => void;
 }
 
 /* ── Component ────────────────────────────────────────────────── */
-export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCardProps) {
+export function NodeCard({ node, selected, isBottleneck, onMouseDown, onInspect, onConfigure }: NodeCardProps) {
   const spec = NODE_CATALOG[node.type] || {
     icon: <ServerIcon size={32} />, color: '#64748b', category: 'Unknown'
   };
+  const cspec = catalog[node.type];
   const instances = node.config.instances || 1;
   const ipAddress = node.config.ip || 'Unassigned IP';
   const containerCount = node.config.containers?.length ?? 0;
   const firewallCount = node.config.firewallRules?.length ?? 0;
+  const latMs = node.config.customLatencyMs     ?? cspec?.latencyMs?.avg ?? 0;
+  const rps   = node.config.customThroughputRps ?? cspec?.throughputRps   ?? 0;
+  const cost  = node.config.customCostPerHour   ?? cspec?.costPerHour     ?? 0;
 
   return (
     <div 
@@ -152,6 +167,28 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown }: NodeCard
             🛡 {firewallCount}
           </div>
         )}
+      </div>
+
+      {/* Hover tooltip — always in DOM, shown via CSS :hover */}
+      <div className="nc-tooltip">
+        <div className="nc-tt-title">{node.label}</div>
+        <div className="nc-tt-type">{spec.category}{cspec?.label ? ` · ${cspec.label}` : ''}</div>
+        <div className="nc-tt-divider" />
+        <div className="nc-tt-row"><span>Latency</span><strong>{latMs} ms</strong></div>
+        <div className="nc-tt-row"><span>Throughput</span><strong>{fmt(rps)} rps</strong></div>
+        <div className="nc-tt-row"><span>Cost</span><strong>${cost.toFixed(3)}/hr</strong></div>
+        {instances > 1 && <div className="nc-tt-row"><span>Instances</span><strong>×{instances}</strong></div>}
+        {isBottleneck && <div className="nc-tt-warn">⚠ Bottleneck</div>}
+        <div className="nc-tt-actions">
+          <button className="nc-tt-btn" onMouseDown={(e) => { e.stopPropagation(); onInspect?.(); }}>
+            ⊞ Open Inspector
+          </button>
+          {onConfigure && (
+            <button className="nc-tt-btn nc-tt-btn--primary" onMouseDown={(e) => { e.stopPropagation(); onConfigure(); }}>
+              ⚙ Configure →
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
