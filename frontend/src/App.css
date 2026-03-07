@@ -235,6 +235,9 @@ body {
   box-shadow: var(--shadow-sm);
 }
 .hdr-comp-item:active { cursor: grabbing; }
+/* Click-only palette items (Storage, Firewall) — pointer cursor, no grab */
+.hdr-comp-item--action { cursor: pointer; }
+.hdr-comp-item--action:active { cursor: pointer; }
 .hdr-comp-icon {
   width: 30px;
   height: 30px;
@@ -4625,6 +4628,7 @@ body {
 .ndp-meter-head span:first-child { color: var(--text-xs); }
 .ndp-meter--ram .ndp-meter-head span:last-child  { color: var(--success); }
 .ndp-meter--cpu .ndp-meter-head span:last-child  { color: var(--accent); }
+.ndp-meter--storage .ndp-meter-head span:last-child { color: #b45309; }
 .ndp-meter-bar {
   height: 5px;
   background: var(--surface2);
@@ -4639,6 +4643,7 @@ body {
 }
 .ndp-meter--ram .ndp-meter-fill { background: var(--success); }
 .ndp-meter--cpu .ndp-meter-fill { background: var(--accent); }
+.ndp-meter--storage .ndp-meter-fill { background: #b45309; }
 .ndp-chassis-divider {
   width: 1px; height: 28px;
   background: var(--border);

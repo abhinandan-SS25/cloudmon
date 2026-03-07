@@ -803,12 +803,15 @@ export default function NodeDetailPage() {
   const [panX,    setPanX]    = useState(24);
   const [panY,    setPanY]    = useState(24);
   const [spaceDown,   setSpaceDown]   = useState(false);
-  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [maxStorage,  setMaxStorage]  = useState(500);   // GB — limits/proportions storage panel
   const dragOffset = useRef({ x: 0, y: 0 });
   const canvasRef  = useRef<HTMLDivElement>(null);
   // Keep stable refs for the wheel handler (avoids stale closure)
   const viewRef = useRef({ zoom: 1, panX: 24, panY: 24, minZoom: 0.125 });
   const panRef  = useRef({ active: false, startX: 0, startY: 0, initPanX: 24, initPanY: 24 });
+  // Stable function refs – allows window event listeners to always call the latest version
+  const addVolumeRef   = useRef<(opts?: Partial<VolumeMount>) => void>(() => {});
+  const addFirewallRef = useRef<(opts?: Partial<FirewallRule>) => void>(() => {});
 
   /* Seed from node config on load */
   useEffect(() => {
@@ -829,6 +832,18 @@ export default function NodeDetailPage() {
       return next;
     });
   }, [localNode?.config.containers?.length]); // eslint-disable-line
+
+  /* Handle cloudmon:add-storage / cloudmon:add-firewall events from the top nav */
+  useEffect(() => {
+    const onStorage  = (e: Event) => addVolumeRef.current((e as CustomEvent).detail as Partial<VolumeMount>);
+    const onFirewall = (e: Event) => addFirewallRef.current((e as CustomEvent).detail as Partial<FirewallRule>);
+    window.addEventListener('cloudmon:add-storage',  onStorage);
+    window.addEventListener('cloudmon:add-firewall', onFirewall);
+    return () => {
+      window.removeEventListener('cloudmon:add-storage',  onStorage);
+      window.removeEventListener('cloudmon:add-firewall', onFirewall);
+    };
+  }, []);
 
   /* Space bar for pan mode */
   useEffect(() => {
@@ -886,13 +901,21 @@ export default function NodeDetailPage() {
   const mode: DeploymentMode = localNode.config.deployment ?? 'local';
   const provider = localNode.config.cloudProvider;
 
-  const usedRam = containers.reduce((s, c) => s + (c.resources?.memoryMb ?? 0) / 1024, 0);
-  const usedCpu = containers.reduce((s, c) => s + (c.resources?.cpuMillicores ?? 0) / 1000, 0);
+  const usedRam     = containers.reduce((s, c) => s + (c.resources?.memoryMb ?? 0) / 1024, 0);
+  const usedCpu     = containers.reduce((s, c) => s + (c.resources?.cpuMillicores ?? 0) / 1000, 0);
+  const usedStorage = volumes.reduce((s, v) => s + (v.sizeGb ?? 0), 0);
 
   // Min zoom is proportional to RAM: 1GB → can only zoom to 1×, 2GB → 0.5×, etc.
   const minZoom = Math.max(0.08, 1 / maxRam);
   // Keep ref in sync every render
   viewRef.current = { zoom, panX, panY, minZoom };
+
+  // Canvas virtual dimensions — proportional to provisioned compute
+  // 8 GB RAM → 6 000 px wide; 4 CPU cores → 4 000 px tall (matches previous hardcoded values)
+  const canvasW = Math.max(2400, maxRam  * 750);
+  const canvasH = Math.max(1600, maxCpu  * 1000);
+  // Max services that fit on canvas (for guidance display)
+  const maxNodes = Math.floor((canvasW - 48) / (NODE_W + 20)) * Math.floor((canvasH - 48) / (NODE_H + 20));
 
   // Screen → canvas coordinate transform
   const screenToCanvas = (cx: number, cy: number) => {
@@ -934,23 +957,32 @@ export default function NodeDetailPage() {
     setSelectedId(p.id);
   };
 
-  const addVolume = () => {
+  const addVolume = (opts?: Partial<VolumeMount>) => {
     const v: VolumeMount = {
-      id: nextVolumeId(), name: 'new-volume',
-      containerPath: '/data', readOnly: false, type: 'volume', sizeGb: 100,
+      id: nextVolumeId(), name: opts?.name ?? 'new-volume',
+      containerPath: '/data', readOnly: false,
+      type: (opts?.type as VolumeMount['type']) ?? 'volume',
+      sizeGb: (opts?.sizeGb as number) ?? 100,
     };
     setVolumes([...volumes, v]);
     setSelectedId(v.id);
   };
+  addVolumeRef.current = addVolume;
 
-  const addFirewallRule = () => {
+  const addFirewallRule = (opts?: Partial<FirewallRule>) => {
     const r: FirewallRule = {
-      id: nextFirewallId(), direction: 'inbound', protocol: 'tcp',
-      portRange: '80', cidr: '0.0.0.0/0', action: 'allow', priority: 100,
+      id: nextFirewallId(),
+      direction: (opts?.direction as FirewallRule['direction']) ?? 'inbound',
+      protocol:  (opts?.protocol  as FirewallRule['protocol'])  ?? 'tcp',
+      portRange: (opts?.portRange as string) ?? '80',
+      cidr:      (opts?.cidr      as string) ?? '0.0.0.0/0',
+      action:    (opts?.action    as FirewallRule['action'])    ?? 'allow',
+      priority:  (opts?.priority  as number) ?? 100,
     };
     setFirewall([...firewallRules, r]);
     setSelectedId(r.id);
   };
+  addFirewallRef.current = addFirewallRule;
 
   const deleteSelected = () => {
     if (!selectedId) return;
@@ -1080,24 +1112,12 @@ export default function NodeDetailPage() {
                   </div>
                 </div>
                 <div className="ndp-chassis-divider" />
-                {/* Add service dropdown — click-toggled to avoid CSS hover glitch */}
-                <div className="ndp-add-dropdown" style={{ position: 'relative' }}>
-                  <button
-                    className="btn-primary ndp-add-main"
-                    style={{ height: 34, padding: '0 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 5 }}
-                    onClick={() => setShowAddMenu(p => !p)}
-                  >
-                    <Plus size={13} /> Add Service
-                  </button>
-                  {showAddMenu && (
-                    <div className="ndp-add-menu" style={{ display: 'flex', flexDirection: 'column' }}>
-                      {(Object.entries(ITEM_KINDS) as [ItemKind, ItemKindConfig][]).map(([k, kc]) => (
-                        <button key={k} className="ndp-add-menu-item" onClick={() => { addContainer(k); setShowAddMenu(false); }}>
-                          <span>{kc.emoji}</span> {kc.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                {/* Storage capacity indicator — scaled to maxStorage */}
+                <div className="ndp-meter ndp-meter--storage" title={`${usedStorage} GB used of ${maxStorage} GB · ${maxNodes} services fit this canvas`}>
+                  <div className="ndp-meter-head"><span>Storage</span><span>{usedStorage}/{maxStorage}G</span></div>
+                  <div className="ndp-meter-bar">
+                    <div className="ndp-meter-fill ndp-meter-fill--storage" style={{ width: `${Math.min(100, (usedStorage / maxStorage) * 100)}%` }} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1129,7 +1149,7 @@ export default function NodeDetailPage() {
                       <span className="ndp-panel-title"><Shield size={12} style={{ color: '#ef4444' }} /> Firewall
                         {firewallRules.length > 0 && <span className="ndp-ribbon-badge" style={{ marginLeft: 4 }}>{firewallRules.length}</span>}
                       </span>
-                      <button className="ndp-panel-add" onClick={addFirewallRule} title="Add rule"><Plus size={13} /></button>
+                      <button className="ndp-panel-add" onClick={() => addFirewallRule()} title="Add rule"><Plus size={13} /></button>
                     </div>
                     <div className="ndp-net-scroll">
                       {firewallRules.length === 0
@@ -1187,16 +1207,16 @@ export default function NodeDetailPage() {
                     onClick={e => {
                       const t = e.target as HTMLElement;
                       if (t.classList.contains('ndp-canvas-wrap') || t.classList.contains('ndp-canvas-viewport') || t.tagName === 'svg') {
-                        setSelectedId(null); setConnectingFrom(null); setShowAddMenu(false);
+                        setSelectedId(null); setConnectingFrom(null);
                       }
                     }}
                   >
                     {/* ── Panning viewport – all canvas items live here ── */}
                     <div
                       className="ndp-canvas-viewport"
-                      style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})`, transformOrigin: '0 0' }}
+                      style={{ transform: `translate(${panX}px,${panY}px) scale(${zoom})`, transformOrigin: '0 0', width: canvasW, height: canvasH }}
                     >
-                      <svg className="ndp-canvas-svg" style={{ position: 'absolute', top: 0, left: 0, width: 6000, height: 4000, overflow: 'visible', pointerEvents: 'none' }}>
+                      <svg className="ndp-canvas-svg" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, overflow: 'visible', pointerEvents: 'none' }}>
                         {connectingFrom && containers.find(c => c.id === connectingFrom) && (() => {
                           const src = anchorR(connectingFrom);
                           return <path d={bezier(src.x, src.y, mousePos.x, mousePos.y)} fill="none" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 4" />;
@@ -1241,7 +1261,7 @@ export default function NodeDetailPage() {
                       {containers.length === 0 && (
                         <div className="ndp-canvas-empty" style={{ pointerEvents: 'none', transform: `scale(${1/zoom})`, transformOrigin: '50% 40%' }}>
                           <div className="ndp-canvas-empty-icon">📦</div>
-                          <div>Drag a service from the top menu, or click "Add Service"</div>
+                          <div>Drag a service from the top menu ({containers.length}/{maxNodes} placed)</div>
                         </div>
                       )}
                     </div>{/* /ndp-canvas-viewport */}
@@ -1260,7 +1280,7 @@ export default function NodeDetailPage() {
               <div className="ndp-storage">
                   <div className="ndp-panel-head">
                     <span className="ndp-panel-title"><HardDrive size={12} style={{ color: '#7c3aed' }} /> Storage</span>
-                    <button className="ndp-panel-add" onClick={addVolume}><Plus size={13} /></button>
+                    <button className="ndp-panel-add" onClick={() => addVolume()}><Plus size={13} /></button>
                   </div>
                   <div className="ndp-storage-body">
                     {volumes.map(vol => (

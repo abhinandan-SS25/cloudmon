@@ -20,8 +20,15 @@ import catalog, { PALETTE_SECTIONS } from './data/componentCatalog';
    Logo → home, one dropdown per section category, Manage menu.
    ───────────────────────────────────────────────────────────── */
 
+/* ── Type helpers for palette sections ─────────────────────────── */
+interface DragItem { key: string; name: string; emoji: string; desc: string; }
+interface ClickItem { name: string; emoji: string; desc: string; extra: Record<string, unknown>; }
+interface DragSection  { title: string; color: string; clickOnly?: false; items: DragItem[]; }
+interface ClickSection { title: string; color: string; clickOnly: true; event: string; items: ClickItem[]; }
+type PaletteSection = DragSection | ClickSection;
+
 /** Node-page service palette — organised by technology stack */
-const NODE_PALETTE_SECTIONS = [
+const NODE_PALETTE_SECTIONS: PaletteSection[] = [
   {
     title: 'Docker',
     color: '#0099e6',
@@ -90,6 +97,41 @@ const NODE_PALETTE_SECTIONS = [
       { key: 'queue', name: 'Webhook Relay',    emoji: '🪝', desc: 'Inbound webhook fan-out' },
     ],
   },
+  /* ── Click-to-add (not draggable) – dispatched via window CustomEvent ── */
+  {
+    title: 'Storage',
+    color: '#b45309',
+    clickOnly: true,
+    event: 'cloudmon:add-storage',
+    items: [
+      { name: 'SSD Block Vol.',   emoji: '💾', desc: '100 GB persistent SSD volume',     extra: { name: 'SSD Block Volume',       type: 'volume', sizeGb: 100  } },
+      { name: 'NFS Mount',        emoji: '🗂️', desc: 'Shared network file system (500 GB)', extra: { name: 'NFS Mount',              type: 'bind',   sizeGb: 500  } },
+      { name: 'RAM Disk',         emoji: '⚡',  desc: 'tmpfs in-memory volume (4 GB)',     extra: { name: 'RAM Disk (tmpfs)',        type: 'tmpfs',  sizeGb: 4    } },
+      { name: 'Object Store',     emoji: '🪣',  desc: 'S3-compatible blob bucket (1 TB)',  extra: { name: 'Object Store',           type: 'volume', sizeGb: 1000 } },
+      { name: 'Ephemeral Vol.',   emoji: '📦',  desc: 'Temporary, lost on restart',       extra: { name: 'Ephemeral Volume',       type: 'volume', sizeGb: 20   } },
+      { name: 'PV Claim',         emoji: '🗄️', desc: 'K8s Persistent Volume Claim (200 GB)',extra:{ name: 'PV Claim',               type: 'volume', sizeGb: 200  } },
+      { name: 'Config Volume',    emoji: '🔧',  desc: 'Read-only mounted config (1 GB)',   extra: { name: 'Config Volume',          type: 'bind',   sizeGb: 1    } },
+      { name: 'Shared Scratch',   emoji: '🔄',  desc: 'Multi-pod shared scratch space',    extra: { name: 'Shared Scratch',         type: 'volume', sizeGb: 50   } },
+    ],
+  } as ClickSection,
+  {
+    title: 'Firewall',
+    color: '#dc2626',
+    clickOnly: true,
+    event: 'cloudmon:add-firewall',
+    items: [
+      { name: 'Allow HTTP',       emoji: '🌐', desc: 'Inbound TCP 80',               extra: { direction:'inbound',  protocol:'tcp', portRange:'80',      cidr:'0.0.0.0/0',  action:'allow' } },
+      { name: 'Allow HTTPS',      emoji: '🔒', desc: 'Inbound TCP 443',              extra: { direction:'inbound',  protocol:'tcp', portRange:'443',     cidr:'0.0.0.0/0',  action:'allow' } },
+      { name: 'Allow SSH',        emoji: '🔑', desc: 'Inbound TCP 22',               extra: { direction:'inbound',  protocol:'tcp', portRange:'22',      cidr:'0.0.0.0/0',  action:'allow' } },
+      { name: 'PostgreSQL',       emoji: '🐘', desc: 'Inbound TCP 5432 (VPC only)',  extra: { direction:'inbound',  protocol:'tcp', portRange:'5432',    cidr:'10.0.0.0/8', action:'allow' } },
+      { name: 'Redis',            emoji: '🔴', desc: 'Inbound TCP 6379 (VPC only)',  extra: { direction:'inbound',  protocol:'tcp', portRange:'6379',    cidr:'10.0.0.0/8', action:'allow' } },
+      { name: 'All Outbound',     emoji: '↗️',  desc: 'Allow all egress traffic',     extra: { direction:'outbound', protocol:'any', portRange:'0-65535', cidr:'0.0.0.0/0',  action:'allow' } },
+      { name: 'Block All In',     emoji: '🚫', desc: 'Default-deny inbound',         extra: { direction:'inbound',  protocol:'any', portRange:'0-65535', cidr:'0.0.0.0/0',  action:'deny'  } },
+      { name: 'gRPC (50051)',     emoji: '🔌', desc: 'Inbound TCP 50051 (VPC)',      extra: { direction:'inbound',  protocol:'tcp', portRange:'50051',   cidr:'10.0.0.0/8', action:'allow' } },
+      { name: 'Kafka (9092)',     emoji: '📥', desc: 'Inbound TCP 9092 (VPC)',       extra: { direction:'inbound',  protocol:'tcp', portRange:'9092',    cidr:'10.0.0.0/8', action:'allow' } },
+      { name: 'Custom Rule',      emoji: '🔧', desc: 'Define your own rule',          extra: { direction:'inbound',  protocol:'tcp', portRange:'8080',    cidr:'0.0.0.0/0',  action:'allow' } },
+    ],
+  } as ClickSection,
 ];
 
 /** Flat search index built once from the catalog. */
@@ -276,26 +318,37 @@ function EditorHeader() {
               </button>
               {isOpen && (
                 <div className="hdr-comp-panel node-palette">
-                  {section.items.map(item => (
-                    <div
-                      key={`${item.key}-${item.name}`}
-                      className="hdr-comp-item"
-                      draggable
-                      onDragStart={e => {
-                        e.dataTransfer.setData('itemKind', item.key);
-                        e.dataTransfer.setData('itemName', item.name);
-                        e.dataTransfer.effectAllowed = 'copy';
-                        setOpen(null);
-                      }}
-                      title={item.desc}
-                    >
-                      <span
-                        className="hdr-comp-icon"
-                        style={{ background: `${section.color}18`, color: section.color, fontSize: '1.1rem' }}
-                      >{item.emoji}</span>
-                      <span className="hdr-comp-label">{item.name}</span>
-                    </div>
-                  ))}
+                  {section.items.map(item => {
+                    const isClick = section.clickOnly === true;
+                    return (
+                      <div
+                        key={item.name}
+                        className={`hdr-comp-item${isClick ? ' hdr-comp-item--action' : ''}`}
+                        draggable={!isClick}
+                        onDragStart={isClick ? undefined : e => {
+                          // Keep the panel mounted during drag — close on dragEnd instead
+                          e.dataTransfer.setData('itemKind', (item as DragItem).key);
+                          e.dataTransfer.setData('itemName', item.name);
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        onDragEnd={isClick ? undefined : () => setOpen(null)}
+                        onClick={isClick ? () => {
+                          window.dispatchEvent(new CustomEvent(
+                            (section as ClickSection).event,
+                            { detail: (item as ClickItem).extra },
+                          ));
+                          setOpen(null);
+                        } : undefined}
+                        title={item.desc}
+                      >
+                        <span
+                          className="hdr-comp-icon"
+                          style={{ background: `${section.color}18`, color: section.color, fontSize: '1.1rem' }}
+                        >{item.emoji}</span>
+                        <span className="hdr-comp-label">{item.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
