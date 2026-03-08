@@ -45,6 +45,7 @@ export interface CanvasNodeProps {
   onContextMenu:(e: React.MouseEvent) => void;
   onInspect?:   () => void;
   onConfigure?: () => void;
+  onUpdate?:    (updated: import('../../types').CyNode) => void;
 }
 
 /* ── Component ───────────────────────────────────────────────── */
@@ -58,6 +59,7 @@ export function CanvasNode({
   onContextMenu,
   onInspect,
   onConfigure,
+  onUpdate,
 }: CanvasNodeProps) {
   const W = node.width;
   const H = node.height;
@@ -87,6 +89,7 @@ export function CanvasNode({
             onMouseDown={onDragStart}
             onInspect={onInspect}
             onConfigure={onConfigure}
+            onUpdate={onUpdate}
           />
         </div>
       </foreignObject>

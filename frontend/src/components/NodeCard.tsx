@@ -115,10 +115,11 @@ export interface NodeCardProps {
   onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   onInspect?: () => void;
   onConfigure?: () => void;
+  onUpdate?: (updated: CyNode) => void;
 }
 
 /* ── Component ────────────────────────────────────────────────── */
-export function NodeCard({ node, selected, isBottleneck, onMouseDown, onInspect, onConfigure }: NodeCardProps) {
+export function NodeCard({ node, selected, isBottleneck, onMouseDown, onInspect, onConfigure, onUpdate }: NodeCardProps) {
   const spec = NODE_CATALOG[node.type] || {
     icon: <ServerIcon size={32} />, color: '#64748b', category: 'Unknown'
   };
@@ -171,8 +172,21 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown, onInspect,
 
       {/* Hover tooltip — always in DOM, shown via CSS :hover */}
       <div className="nc-tooltip">
-        <div className="nc-tt-title">{node.label}</div>
+        <input
+          className="nc-tt-input nc-tt-input--label"
+          value={node.label}
+          placeholder="Label"
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => onUpdate?.({ ...node, label: e.target.value })}
+        />
         <div className="nc-tt-type">{spec.category}{cspec?.label ? ` · ${cspec.label}` : ''}</div>
+        <input
+          className="nc-tt-input nc-tt-input--ip"
+          value={node.config.ip ?? ''}
+          placeholder="IP / hostname"
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => onUpdate?.({ ...node, config: { ...node.config, ip: e.target.value } })}
+        />
         <div className="nc-tt-divider" />
         <div className="nc-tt-row"><span>Latency</span><strong>{latMs} ms</strong></div>
         <div className="nc-tt-row"><span>Throughput</span><strong>{fmt(rps)} rps</strong></div>
@@ -181,7 +195,7 @@ export function NodeCard({ node, selected, isBottleneck, onMouseDown, onInspect,
         {isBottleneck && <div className="nc-tt-warn">⚠ Bottleneck</div>}
         <div className="nc-tt-actions">
           <button className="nc-tt-btn" onMouseDown={(e) => { e.stopPropagation(); onInspect?.(); }}>
-            ⊞ Open Inspector
+            ⊞ Inspector
           </button>
           {onConfigure && (
             <button className="nc-tt-btn nc-tt-btn--primary" onMouseDown={(e) => { e.stopPropagation(); onConfigure(); }}>

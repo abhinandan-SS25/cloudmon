@@ -37,11 +37,10 @@ const MIN_SCALE = 0.15;
 const MAX_SCALE = 3;
 
 /* ── Node types that support the deep internal-configuration editor */
-const CONFIGURABLE_TYPES = new Set([
+/* Node-editor navigation is gated to types that actually have
+   internal pods / VMs / containers to configure. */
+const NODE_EDITOR_TYPES = new Set([
   'web_server', 'app_server', 'microservice', 'container', 'kubernetes',
-  'monolithic_api', 'graphql', 'serverless',
-  'postgres', 'sql', 'dynamodb', 'non_relational', 'redis', 'elasticsearch',
-  'api_gateway', 'load_balancer', 'firewall', 'vpn',
 ]);
 
 /* ── Helpers ─────────────────────────────────────────────────── */
@@ -457,7 +456,7 @@ function NodeInspector({
       </div>
 
       {/* ── Open detailed editor ───────────────────────────── */}
-      {onConfigureInternals && CONFIGURABLE_TYPES.has(node.type) && (
+      {onConfigureInternals && NODE_EDITOR_TYPES.has(node.type) && (
         <button
           className="inspector-configure-btn"
           onClick={onConfigureInternals}
@@ -1227,8 +1226,9 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
                   onConnect={(e) => startConnect(node.id, e)}
                   onContextMenu={(e) => handleContextMenu(e, node.id, 'node')}
                   onInspect={() => setSelectedNodeId(node.id)}
+                  onUpdate={updateNode}
                   onConfigure={
-                    CONFIGURABLE_TYPES.has(node.type) && projectId
+                    projectId
                       ? () => {
                           const base = `/projects/${projectId}`;
                           const url = requestId
@@ -1297,7 +1297,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
               onClose={() => setSelectedNodeId(null)}
               onOpenPicker={(id) => setInstancePickerNodeId(id)}
               onConfigureInternals={
-                CONFIGURABLE_TYPES.has(selectedNode.type) && projectId
+                NODE_EDITOR_TYPES.has(selectedNode.type) && projectId
                   ? () => {
                       const base = `/projects/${projectId}`;
                       const url = requestId
@@ -1323,7 +1323,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
         onAddNode={addNodeAt}
         onConfigureInternals={
           ctxMenu.targetType === 'node' && ctxMenu.targetId && projectId &&
-          CONFIGURABLE_TYPES.has(nodes.find((n) => n.id === ctxMenu.targetId)?.type ?? '')
+          NODE_EDITOR_TYPES.has(nodes.find((n) => n.id === ctxMenu.targetId)?.type ?? '')
             ? (id) => {
                 const base = `/projects/${projectId}`;
                 const url = requestId
