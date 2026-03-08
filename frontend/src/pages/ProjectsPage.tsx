@@ -4,6 +4,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectsContext';
+import { FloatingNav } from '../components/FloatingNav';
 import { flatRequestLeaves } from '../utils/canvasUtils';
 
 export default function ProjectsPage() {
@@ -17,6 +18,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="page">
+      <FloatingNav />
       <div className="page-header">
         <div>
           <h2>Projects</h2>

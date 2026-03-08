@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════════════════════════ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { NodeDetailDock } from '../components/NodeDetailDock';
 import {
   Server, HardDrive, Shield, Plus, Trash2, Settings,
   Activity, Cpu, X, Cloud, MonitorSmartphone, Layers,
@@ -1054,6 +1055,7 @@ export default function NodeDetailPage() {
 
   return (
     <div className="ndp-root">
+      <NodeDetailDock />
       <div className="ndp-main-col">
 
         {/* ── Topbar: breadcrumb + ribbon tabs + save pill ── */}

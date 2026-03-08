@@ -18,6 +18,7 @@ import type { CloudServiceOption } from '../data/cloudInstanceTypes';
 import { analyzeCanvas } from '../utils/analysisEngine';
 import { buildEdge, buildNode, edgePath, NODE_H, NODE_W, nodeCenter } from '../utils/canvasUtils';
 import { CanvasNode } from './svg/CanvasNode';
+import { ComponentDock } from './ComponentDock';
 import {
   AnalysisResult,
   CanvasState,
@@ -844,11 +845,18 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     });
   }, [persist, edges]);
 
-  /* ── Drag-drop from ribbon palette ──────────────────────── */
+  /* ── Drag-drop from component dock ─────────────────────── */
   const handleCanvasDrop = useCallback(
     (e: React.DragEvent<SVGSVGElement>) => {
       e.preventDefault();
-      const type = e.dataTransfer.getData('componentType');
+      // Try new application/json format first (ComponentDock)
+      let type: string | null = null;
+      const jsonData = e.dataTransfer.getData('application/json');
+      if (jsonData) {
+        try { type = JSON.parse(jsonData).type ?? null; } catch { /* ignore */ }
+      }
+      // Fallback to legacy componentType string
+      if (!type) type = e.dataTransfer.getData('componentType') || null;
       if (!type) return;
       const { x, y } = screenToCanvas(e.clientX, e.clientY, viewport, getSvgRect());
       const node = buildNode(type, x - NODE_W / 2, y - NODE_H / 2);
@@ -1092,13 +1100,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
   return (
     <div className={`editor-root${hasPicker ? ' has-picker' : ''}`}>
-      {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className="editor-toolbar">
-        <span className="toolbar-phase-badge">
-          {phase === 'base' ? '🏗 Base' : '📋 Request'}
-        </span>
-      </div>
-
+      {/* ── Mini zoom shelf ──────────────────────────────────── */}
       <div className='view-shelf'>
         <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
           −
@@ -1311,6 +1313,9 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
           </div>
         )}
       </div>
+
+      {/* ── Component Dock (floating bottom picker) ───────────── */}
+      <ComponentDock />
 
       {/* Context Menu */}
       <ContextMenu

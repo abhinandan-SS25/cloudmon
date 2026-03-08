@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../context/ProjectsContext';
 import CloudmonSVG from '../components/svg/CloudmonSVG';
+import { FloatingNav } from '../components/FloatingNav';
 import { GrSecure } from "react-icons/gr";
 import { FaLinux } from "react-icons/fa";
 import { FaShareNodes } from "react-icons/fa6";
@@ -69,6 +70,7 @@ export default function LandingPage() {
 
   return (
     <div className="page landing">
+      <FloatingNav />
       <div className="hero">
         <div className="hero-copy">
           <span className="hero-kicker">CloudMon</span>
