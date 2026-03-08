@@ -12,12 +12,12 @@ import React, {
   useState,
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import catalog from '../data/componentCatalog';
+import catalog, { PALETTE_SECTIONS } from '../data/componentCatalog';
+import { CONFIGURABLE_TYPES } from '../pages/NodeDetailPage';
 import { CLOUD_MAPPINGS } from '../data/cloudInstanceTypes';
 import type { CloudServiceOption } from '../data/cloudInstanceTypes';
 import { analyzeCanvas } from '../utils/analysisEngine';
 import { buildEdge, buildNode, edgePath, NODE_H, NODE_W, nodeCenter } from '../utils/canvasUtils';
-import { CanvasNode } from './svg/CanvasNode';
 import {
   AnalysisResult,
   CanvasState,
@@ -35,13 +35,7 @@ import type {
 /* ── Constants ────────────────────────────────────────────────── */
 const MIN_SCALE = 0.15;
 const MAX_SCALE = 3;
-
-/* ── Node types that support the deep internal-configuration editor */
-/* Node-editor navigation is gated to types that actually have
-   internal pods / VMs / containers to configure. */
-const NODE_EDITOR_TYPES = new Set([
-  'web_server', 'app_server', 'microservice', 'container', 'kubernetes',
-]);
+const HANDLE_R = 7;
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 function screenToCanvas(
@@ -56,6 +50,17 @@ function screenToCanvas(
   };
 }
 
+function handlePositions(node: CyNode) {
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+  return {
+    top:    { x: cx,              y: node.y },
+    bottom: { x: cx,              y: node.y + node.height },
+    left:   { x: node.x,          y: cy },
+    right:  { x: node.x + node.width,  y: cy },
+  };
+}
+
 function formatNumber(n: number): string {
   if (!isFinite(n)) return '∞';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -64,6 +69,144 @@ function formatNumber(n: number): string {
 }
 
 /* ── Sub-components ───────────────────────────────────────────── */
+
+/* Node card rendered inside SVG foreignObject */
+function NodeCard({
+  node,
+  selected,
+  isBottleneck,
+  onMouseDown,
+}: {
+  node: CyNode;
+  selected: boolean;
+  isBottleneck: boolean;
+  onMouseDown: (e: React.MouseEvent) => void;
+}) {
+  const spec = catalog[node.type];
+  const instances = node.config.instances;
+  return (
+    <div
+      className={`canvas-node${selected ? ' selected' : ''}${isBottleneck ? ' bottleneck' : ''}`}
+      onMouseDown={onMouseDown}
+    >
+      <div className="canvas-node-header" style={{ background: spec?.color ?? '#e5e7eb', color: spec?.textColor ?? '#111' }}>
+        <span className="canvas-node-icon">{spec?.icon ?? '?'}</span>
+        <span className="canvas-node-category">{spec?.category ?? 'unknown'}</span>
+        {isBottleneck && <span className="bottleneck-badge">⚠ bottleneck</span>}
+      </div>
+      <div className="canvas-node-body">
+        <div className="canvas-node-label">{node.label}</div>
+        {instances > 1 && (
+          <div className="canvas-node-instances">×{instances}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Palette ─────────────────────────────────────────────────── */
+function Palette({
+  onDragStart,
+  collapsed,
+  onToggle,
+}: {
+  onDragStart: (type: string, e: React.DragEvent) => void;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(PALETTE_SECTIONS.map((s) => s.title))
+  );
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      return next;
+    });
+  };
+
+  const filteredSections = useMemo(() => {
+    if (!search) return PALETTE_SECTIONS;
+    const q = search.toLowerCase();
+    return PALETTE_SECTIONS.map((s) => ({
+      ...s,
+      keys: s.keys.filter((k) => {
+        const spec = catalog[k];
+        return (
+          spec?.label.toLowerCase().includes(q) ||
+          spec?.tags.some((t) => t.includes(q)) ||
+          k.includes(q)
+        );
+      }),
+    })).filter((s) => s.keys.length > 0);
+  }, [search]);
+
+  if (collapsed) {
+    return (
+      <div className="palette palette--collapsed" onClick={onToggle} title="Open component palette">
+        <div className="palette-toggle-btn">⊞</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="palette">
+      <div className="palette-header">
+        <span className="palette-title">Components</span>
+        <button className="palette-collapse-btn" onClick={onToggle} title="Collapse">◀</button>
+      </div>
+      <div className="palette-search-wrap">
+        <input
+          className="palette-search"
+          placeholder="Search components…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="palette-list">
+        {filteredSections.map((section) => (
+          <div key={section.title} className="palette-section">
+            <div
+              className="palette-section-header"
+              onClick={() => toggleSection(section.title)}
+            >
+              <span>{expandedSections.has(section.title) ? '▾' : '▸'}</span>
+              {section.title}
+            </div>
+            {expandedSections.has(section.title) && (
+              <div className="palette-items">
+                {section.keys.map((key) => {
+                  const spec = catalog[key];
+                  if (!spec) return null;
+                  return (
+                    <div
+                      key={key}
+                      className="palette-item"
+                      draggable
+                      onDragStart={(e) => onDragStart(key, e)}
+                      title={spec.description}
+                    >
+                      <span
+                        className="palette-item-icon"
+                        style={{ background: spec.color, color: spec.textColor }}
+                      >
+                        {spec.icon}
+                      </span>
+                      <span className="palette-item-label">{spec.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ── Instance Picker (cloud deployment modal) ────────────────── */
 function InstancePicker({
@@ -119,28 +262,30 @@ function InstancePicker({
   };
 
   return (
-    <div className="instance-picker">
-      {/* Header */}
-      <div className="instance-picker-header">
-        <div className="ip-title-row">
-          <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
-            {spec?.icon ?? '?'}
-          </span>
-          <div>
-            <div className="ip-node-label">{node.label}</div>
-            <div className="ip-node-type">{spec?.label ?? node.type}</div>
-          </div>
-        </div>
-        <button className="ip-close" onClick={onClose}>✕</button>
-      </div>
+    <div
+      className="instance-picker-overlay"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="instance-picker">
 
-      <div className="ip-body">
-        {/* Mode toggle */}
-        <div className="ip-hero">
-          <div>
-            <div className="ip-hero-kicker">Deployment Mode</div>
-            <div className="ip-hero-title">Choose runtime for this node</div>
+        {/* Header */}
+        <div className="instance-picker-header">
+          <div className="ip-title-row">
+            <span className="ip-icon" style={{ background: spec?.color, color: spec?.textColor }}>
+              {spec?.icon ?? '?'}
+            </span>
+            <div>
+              <div className="ip-node-label">{node.label}</div>
+              <div className="ip-node-type">{spec?.label ?? node.type}</div>
+            </div>
           </div>
+          <button className="ip-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="ip-body">
+
+          {/* Mode toggle */}
+          <div className="ip-section-label">Deployment Mode</div>
           <div className="deploy-mode-toggle">
             <button
               className={`deploy-mode-btn${mode === 'local' ? ' active' : ''}`}
@@ -157,153 +302,104 @@ function InstancePicker({
               ☁ Cloud
             </button>
           </div>
-        </div>
-        {!hasCloud && (
-          <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
-        )}
+          {!hasCloud && (
+            <p className="ip-no-cloud">No cloud provider mappings available for this component type yet.</p>
+          )}
 
-        {mode === 'local' && (
-          <>
-            {/* Local Configuration / Override Specs */}
-            <div className="ip-section-label">Override Default Specs</div>
-
-            <div className="ip-grid">
-              <div className="ip-field">
-                <label>Custom Latency (ms)</label>
-                <input
-                  className="ip-select"
-                  type="number" min={0}
-                  placeholder={`Default: ${spec?.latencyMs.avg ?? 0} ms`}
-                  value={node.config.customLatencyMs ?? ''}
-                  onChange={(e) =>
-                    updateConfig({ customLatencyMs: e.target.value === '' ? undefined : Number(e.target.value) })
-                  }
-                />
-              </div>
-
-              <div className="ip-field">
-                <label>Custom Throughput (rps)</label>
-                <input
-                  className="ip-select"
-                  type="number" min={0}
-                  placeholder={`Default: ${formatNumber(spec?.throughputRps ?? 0)} rps`}
-                  value={node.config.customThroughputRps ?? ''}
-                  onChange={(e) =>
-                    updateConfig({ customThroughputRps: e.target.value === '' ? undefined : Number(e.target.value) })
-                  }
-                />
-              </div>
-
-              <div className="ip-field">
-                <label>Custom Cost ($/hr)</label>
-                <input
-                  className="ip-select"
-                  type="number" min={0} step={0.001}
-                  placeholder={`Default: $${spec?.costPerHour ?? 0}/hr`}
-                  value={node.config.customCostPerHour ?? ''}
-                  onChange={(e) =>
-                    updateConfig({ customCostPerHour: e.target.value === '' ? undefined : Number(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {mode === 'cloud' && hasCloud && (
-          <>
-            {/* Provider tabs */}
-            <div className="ip-section-label">Provider</div>
-            <div className="deploy-provider-tabs">
-              {cloudOptions.map((svc) => (
-                <button
-                  key={svc.provider}
-                  className={`deploy-provider-tab${activeProvider === svc.provider ? ' active' : ''}`}
-                  style={{ '--provider-color': PROVIDER_COLORS[svc.provider] } as React.CSSProperties}
-                  onClick={() => setProvider(svc.provider as CloudProvider)}
-                >
-                  {PROVIDER_LABELS[svc.provider]}
-                </button>
-              ))}
-            </div>
-
-            {activeService && (
-              <>
-                {/* Service card */}
-                <div className="ip-service-card">
-                  <span
-                    className="ip-service-badge"
-                    style={{ background: PROVIDER_COLORS[activeService.provider] }}
+          {mode === 'cloud' && hasCloud && (
+            <>
+              {/* Provider tabs */}
+              <div className="ip-section-label">Provider</div>
+              <div className="deploy-provider-tabs">
+                {cloudOptions.map((svc) => (
+                  <button
+                    key={svc.provider}
+                    className={`deploy-provider-tab${activeProvider === svc.provider ? ' active' : ''}`}
+                    style={{ '--provider-color': PROVIDER_COLORS[svc.provider] } as React.CSSProperties}
+                    onClick={() => setProvider(svc.provider as CloudProvider)}
                   >
-                    {PROVIDER_LABELS[activeService.provider]}
-                  </span>
-                  <div className="ip-service-info">
-                    <span className="ip-service-name">{activeService.serviceName}</span>
-                    <code className="ip-tf-resource">{activeService.terraformResource}</code>
-                  </div>
-                </div>
+                    {PROVIDER_LABELS[svc.provider]}
+                  </button>
+                ))}
+              </div>
 
-                {/* Instance / tier */}
-                {activeService.instanceTypes.length > 0 && (
-                  <div className="ip-section">
-                    <div className="ip-section-label">
-                      Instance Type
-                      {activeService.terraformInstanceField && (
-                        <code className="ip-tf-field">{activeService.terraformInstanceField}</code>
+              {activeService && (
+                <>
+                  {/* Service card */}
+                  <div className="ip-service-card">
+                    <span
+                      className="ip-service-badge"
+                      style={{ background: PROVIDER_COLORS[activeService.provider] }}
+                    >
+                      {PROVIDER_LABELS[activeService.provider]}
+                    </span>
+                    <div className="ip-service-info">
+                      <span className="ip-service-name">{activeService.serviceName}</span>
+                      <code className="ip-tf-resource">{activeService.terraformResource}</code>
+                    </div>
+                  </div>
+
+                  {/* Instance / tier */}
+                  {activeService.instanceTypes.length > 0 && (
+                    <div className="ip-section">
+                      <div className="ip-section-label">
+                        Instance Type
+                        {activeService.terraformInstanceField && (
+                          <code className="ip-tf-field">{activeService.terraformInstanceField}</code>
+                        )}
+                      </div>
+                      <select
+                        className="ip-select"
+                        value={node.config.instanceType ?? ''}
+                        onChange={(e) => {
+                          const it = activeService.instanceTypes.find((t) => t.id === e.target.value);
+                          updateConfig({ instanceType: e.target.value, customCostPerHour: it?.costPerHour });
+                        }}
+                      >
+                        {activeService.instanceTypes.map((it) => (
+                          <option key={it.id} value={it.id}>{it.label}</option>
+                        ))}
+                      </select>
+
+                      {activeInstanceType && (
+                        <div className="deploy-spec-pills" style={{ marginTop: 8 }}>
+                          {activeInstanceType.vcpu !== null && (
+                            <span className="pill">{activeInstanceType.vcpu} vCPU</span>
+                          )}
+                          {activeInstanceType.memoryGb !== null && (
+                            <span className="pill">{activeInstanceType.memoryGb} GB RAM</span>
+                          )}
+                          <span className="pill pill-cost">
+                            ${activeInstanceType.costPerHour.toFixed(
+                              activeInstanceType.costPerHour < 0.01 ? 5 : 3
+                            )}/hr
+                          </span>
+                        </div>
+                      )}
+                      {activeInstanceType?.notes && (
+                        <div className="deploy-instance-note">{activeInstanceType.notes}</div>
                       )}
                     </div>
+                  )}
+
+                  {/* Region */}
+                  <div className="ip-section">
+                    <div className="ip-section-label">Region</div>
                     <select
                       className="ip-select"
-                      value={node.config.instanceType ?? ''}
-                      onChange={(e) => {
-                        const it = activeService.instanceTypes.find((t) => t.id === e.target.value);
-                        updateConfig({ instanceType: e.target.value, customCostPerHour: it?.costPerHour });
-                      }}
+                      value={node.config.region ?? activeService.regions[0]}
+                      onChange={(e) => updateConfig({ region: e.target.value })}
                     >
-                      {activeService.instanceTypes.map((it) => (
-                        <option key={it.id} value={it.id}>{it.label}</option>
+                      {activeService.regions.map((r) => (
+                        <option key={r} value={r}>{r}</option>
                       ))}
                     </select>
-
-                    {activeInstanceType && (
-                      <div className="deploy-spec-pills" style={{ marginTop: 8 }}>
-                        {activeInstanceType.vcpu !== null && (
-                          <span className="pill">{activeInstanceType.vcpu} vCPU</span>
-                        )}
-                        {activeInstanceType.memoryGb !== null && (
-                          <span className="pill">{activeInstanceType.memoryGb} GB RAM</span>
-                        )}
-                        <span className="pill pill-cost">
-                          ${activeInstanceType.costPerHour.toFixed(
-                            activeInstanceType.costPerHour < 0.01 ? 5 : 3
-                          )}/hr
-                        </span>
-                      </div>
-                    )}
-                    {activeInstanceType?.notes && (
-                      <div className="deploy-instance-note">{activeInstanceType.notes}</div>
-                    )}
                   </div>
-                )}
-
-                {/* Region */}
-                <div className="ip-section">
-                  <div className="ip-section-label">Region</div>
-                  <select
-                    className="ip-select"
-                    value={node.config.region ?? activeService.regions[0]}
-                    onChange={(e) => updateConfig({ region: e.target.value })}
-                  >
-                    {activeService.regions.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
-          </>
-        )}
-      </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="ip-footer">
@@ -311,6 +407,7 @@ function InstancePicker({
             Done
           </button>
         </div>
+      </div>
     </div>
   );
 }
@@ -338,20 +435,16 @@ function NodeInspector({
   const spec = catalog[node.type];
   const isBottleneck = analysis?.bottleneckNodeId === node.id;
   const mode: DeploymentMode = node.config.deployment ?? 'local';
+  const cloudOptions = CLOUD_MAPPINGS[node.type] ?? [];
+  const hasCloud = cloudOptions.length > 0;
   const PROVIDER_COLORS: Record<string, string> = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
   const PROVIDER_LABELS: Record<string, string> = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
-  const deploymentLabel =
-    mode === 'cloud'
-      ? `${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
-      : 'Local / Test';
-  const effectiveCostPerHour = node.config.customCostPerHour ?? spec?.costPerHour ?? 0;
-  const latencyMs = node.config.customLatencyMs ?? spec?.latencyMs.avg ?? 0;
-  const throughput = node.config.customThroughputRps ?? spec?.throughputRps ?? 0;
-  const totalThroughput = throughput * (node.config.instances || 1);
+
+  const updateConfig = (patch: Partial<typeof node.config>) =>
+    onUpdate({ ...node, config: { ...node.config, ...patch } });
 
   return (
-    <div className="inspector inspector--node">
-      {/* ── Header ─────────────────────────────────────────── */}
+    <div className="inspector">
       <div className="inspector-header">
         <div className="inspector-title-row">
           <span className="inspector-icon" style={{ background: spec?.color, color: spec?.textColor }}>
@@ -365,105 +458,112 @@ function NodeInspector({
         <button className="inspector-close" onClick={onClose}>✕</button>
       </div>
 
-      {/* ── Status chips ───────────────────────────────────── */}
-      <div className="ni-chips">
-        <span
-          className="ni-chip ni-chip--deploy"
-          style={
-            mode === 'cloud' && node.config.cloudProvider
-              ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
-              : undefined
-          }
-        >
-          {mode === 'cloud' ? '☁' : '🖥'} {deploymentLabel}
-        </span>
-        <span className="ni-chip">{latencyMs} ms</span>
-        <span className="ni-chip">{formatNumber(totalThroughput)} rps</span>
-        <span className="ni-chip">${effectiveCostPerHour.toFixed(3)}/hr</span>
-      </div>
-
-      {/* ── Bottleneck warning ─────────────────────────────── */}
       {isBottleneck && (
         <div className="inspector-warning">
           ⚠ Bottleneck – lowest throughput in the critical path
         </div>
       )}
 
-      {/* ── Spec sheet ─────────────────────────────────────── */}
-      {spec && (
-        <div className="ni-panel ni-spec-sheet">
-          <div className="ni-panel-title">Default Specs</div>
-          <div className="ni-spec-grid">
-            <div className="ni-spec-row">
-              <span className="ni-spec-lbl">Latency avg</span>
-              <span className="ni-spec-val">{spec.latencyMs.avg} ms</span>
-            </div>
-            <div className="ni-spec-row">
-              <span className="ni-spec-lbl">Latency p99</span>
-              <span className="ni-spec-val">{spec.latencyMs.p99} ms</span>
-            </div>
-            <div className="ni-spec-row">
-              <span className="ni-spec-lbl">Throughput</span>
-              <span className="ni-spec-val">{formatNumber(spec.throughputRps)} rps</span>
-            </div>
-            <div className="ni-spec-row">
-              <span className="ni-spec-lbl">Base cost</span>
-              <span className="ni-spec-val">${spec.costPerHour.toFixed(3)}/hr</span>
-            </div>
-          </div>
-          {(node.config.customLatencyMs !== undefined ||
-            node.config.customThroughputRps !== undefined ||
-            node.config.customCostPerHour !== undefined) && (
-            <>
-              <div className="ni-panel-title" style={{ marginTop: 10 }}>Overrides</div>
-              <div className="ni-spec-grid ni-spec-grid--override">
-                {node.config.customLatencyMs !== undefined && (
-                  <div className="ni-spec-row">
-                    <span className="ni-spec-lbl">Latency</span>
-                    <span className="ni-spec-val ni-spec-val--ov">{node.config.customLatencyMs} ms</span>
-                  </div>
-                )}
-                {node.config.customThroughputRps !== undefined && (
-                  <div className="ni-spec-row">
-                    <span className="ni-spec-lbl">Throughput</span>
-                    <span className="ni-spec-val ni-spec-val--ov">{formatNumber(node.config.customThroughputRps)} rps</span>
-                  </div>
-                )}
-                {node.config.customCostPerHour !== undefined && (
-                  <div className="ni-spec-row">
-                    <span className="ni-spec-lbl">Cost</span>
-                    <span className="ni-spec-val ni-spec-val--ov">${node.config.customCostPerHour.toFixed(3)}/hr</span>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+      {/* Configure Internals */}
+      {onConfigureInternals && (
+        <button className="inspector-configure-btn" onClick={onConfigureInternals}>
+          ⚙ Configure Internals →
+        </button>
       )}
 
-      {/* ── Quick edit ─────────────────────────────────────── */}
-      <div className="ni-panel">
-        <div className="ni-panel-title">Label</div>
-        <div className="ni-fields">
-          <div className="ni-field">
-            <input
-              placeholder="Node label"
-              value={node.label}
-              onChange={(e) => onUpdate({ ...node, label: e.target.value })}
-            />
-          </div>
-        </div>
+      {/* Label */}
+      <div className="inspector-field">
+        <label>Label</label>
+        <input value={node.label} onChange={(e) => onUpdate({ ...node, label: e.target.value })} />
       </div>
 
-      {/* ── Open detailed editor ───────────────────────────── */}
-      {onConfigureInternals && NODE_EDITOR_TYPES.has(node.type) && (
-        <button
-          className="inspector-configure-btn"
-          onClick={onConfigureInternals}
-          title="Open the node editor – configure services, firewall, storage, deployment"
+      {/* Instances */}
+      <div className="inspector-field">
+        <label>Instances</label>
+        <input
+          type="number" min={1} max={100}
+          value={node.config.instances}
+          onChange={(e) => updateConfig({ instances: Number(e.target.value) || 1 })}
+        />
+      </div>
+
+      {/* ── Deployment ──────────────────────────────────────── */}
+      <div className="inspector-section-title">Deployment</div>
+      <div className="deploy-summary-row">
+        <div
+          className="deploy-summary-badge"
+          style={
+            mode === 'cloud' && node.config.cloudProvider
+              ? { borderColor: PROVIDER_COLORS[node.config.cloudProvider], color: PROVIDER_COLORS[node.config.cloudProvider] }
+              : undefined
+          }
         >
-          ⊞ Open Node Editor →
-        </button>
+          {mode === 'cloud'
+            ? `☁ ${PROVIDER_LABELS[node.config.cloudProvider ?? ''] ?? 'Cloud'}${node.config.instanceType ? ` · ${node.config.instanceType}` : ''}`
+            : '🖥 Local / Test'}
+        </div>
+        {mode === 'cloud' && node.config.region && (
+          <span className="deploy-summary-region">{node.config.region}</span>
+        )}
+      </div>
+      <button
+        className="deploy-configure-btn"
+        onClick={() => onOpenPicker(node.id)}
+        disabled={!hasCloud}
+        title={!hasCloud ? 'No cloud options for this component' : 'Configure cloud deployment'}
+      >
+        ☁ Configure Deployment…
+      </button>
+
+      {/* ── Override Specs ──────────────────────────────────── */}
+      <div className="inspector-section-title">Override Specs</div>
+      <div className="inspector-field">
+        <label>Custom Latency (ms)</label>
+        <input
+          type="number" min={0}
+          placeholder={`Default: ${spec?.latencyMs.avg ?? 0} ms`}
+          value={node.config.customLatencyMs ?? ''}
+          onChange={(e) =>
+            updateConfig({ customLatencyMs: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+      <div className="inspector-field">
+        <label>Custom Throughput (rps)</label>
+        <input
+          type="number" min={0}
+          placeholder={`Default: ${formatNumber(spec?.throughputRps ?? 0)} rps`}
+          value={node.config.customThroughputRps ?? ''}
+          onChange={(e) =>
+            updateConfig({ customThroughputRps: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+      <div className="inspector-field">
+        <label>Custom Cost ($/hr)</label>
+        <input
+          type="number" min={0} step={0.001}
+          placeholder={`Default: $${spec?.costPerHour ?? 0}/hr`}
+          value={node.config.customCostPerHour ?? ''}
+          onChange={(e) =>
+            updateConfig({ customCostPerHour: e.target.value === '' ? undefined : Number(e.target.value) })
+          }
+        />
+      </div>
+
+      {/* ── Spec Reference ──────────────────────────────────── */}
+      {spec && (
+        <>
+          <div className="inspector-section-title">Spec Reference</div>
+          <div className="inspector-specs">
+            <div className="inspector-spec-row"><span>Avg latency</span><strong>{spec.latencyMs.avg} ms</strong></div>
+            <div className="inspector-spec-row"><span>p99 latency</span><strong>{spec.latencyMs.p99} ms</strong></div>
+            <div className="inspector-spec-row"><span>Peak throughput</span><strong>{formatNumber(spec.throughputRps)} rps</strong></div>
+            <div className="inspector-spec-row"><span>Cost/hr</span><strong>${spec.costPerHour.toFixed(3)}</strong></div>
+            <div className="inspector-spec-row"><span>Scalable</span><strong>{spec.horizontallyScalable ? '✅ Yes' : '❌ No'}</strong></div>
+          </div>
+          <div className="inspector-description">{spec.description}</div>
+        </>
       )}
 
       <button className="inspector-delete-btn" onClick={onDelete}>
@@ -473,101 +573,8 @@ function NodeInspector({
   );
 }
 
-function ArchitectureOverviewPanel({
-  result,
-  nodeCount,
-  edgeCount,
-  onAnalyse,
-}: {
-  result: AnalysisResult;
-  nodeCount: number;
-  edgeCount: number;
-  onAnalyse: () => void;
-}) {
-  const isHighLatency = result.totalLatencyMs > 500;
-  const hasBottleneck = Boolean(result.bottleneckLabel);
-  const isEmpty = nodeCount === 0;
 
-  return (
-    <div className="inspector ov-inspector">
-      <div className="ov-panel">
-        {/* Header card */}
-        <div className="ov-card ov-card--header">
-          <span className="ov-header-dot" />
-          <div>
-            <div className="ov-header-title">Workspace</div>
-            <div className="ov-header-sub">Overview</div>
-          </div>
-          <div className="ov-header-chips">
-            <span className="ov-chip">{nodeCount}</span>
-            <span className="ov-chip-label">nodes</span>
-            <span className="ov-chip">{edgeCount}</span>
-            <span className="ov-chip-label">edges</span>
-          </div>
-        </div>
-
-        {isEmpty ? (
-          <div className="ov-empty">Add nodes to the canvas to start.</div>
-        ) : (
-          <>
-            {/* Latency */}
-            <div className={`ov-card ov-card--metric${isHighLatency ? ' ov-card--warn' : ''}`}>
-              <div className="ov-metric-label">LATENCY</div>
-              <div className="ov-metric-row">
-                <span className="ov-metric-value">
-                  {result.totalLatencyMs > 0 ? `${result.totalLatencyMs} ms` : '—'}
-                </span>
-                {isHighLatency && <span className="ov-warn-arrow">∧</span>}
-              </div>
-              <div className="ov-metric-sub2">p99 &nbsp;{result.p99LatencyMs} ms</div>
-            </div>
-
-            {/* Throughput */}
-            <div className="ov-card ov-card--metric">
-              <div className="ov-metric-label">THROUGHPUT</div>
-              <div className="ov-metric-row">
-                <span className="ov-metric-value">{formatNumber(result.throughputRps)}</span>
-                <span className="ov-metric-sub">rps</span>
-              </div>
-              <div className="ov-metric-sub2">{formatNumber(result.maxConcurrentUsers)} max users</div>
-            </div>
-
-            {/* Bottleneck */}
-            <div className={`ov-card ov-card--metric${hasBottleneck ? ' ov-card--alert' : ''}`}>
-              <div className="ov-metric-label">BOTTLENECK</div>
-              <div className="ov-metric-row">
-                <span className="ov-metric-value ov-metric-value--md">
-                  {result.bottleneckLabel ?? 'None detected'}
-                </span>
-                {hasBottleneck && <span className="ov-alert-dot" />}
-              </div>
-            </div>
-
-            {/* Hourly cost */}
-            <div className="ov-card ov-card--metric">
-              <div className="ov-metric-label">HOURLY COST</div>
-              <div className="ov-metric-row">
-                <span className="ov-metric-value">
-                  {result.costPerHour > 0 ? `$${result.costPerHour.toFixed(2)}` : '—'}
-                </span>
-                {result.costPerHour > 0 && <span className="ov-metric-sub">/ AWS</span>}
-              </div>
-              {result.costPerHour > 0 && (
-                <div className="ov-metric-sub2">${result.costPerMillionRequests.toFixed(3)} / 1M req</div>
-              )}
-            </div>
-          </>
-        )}
-
-        <button className="ov-analyse-btn" onClick={onAnalyse} disabled={isEmpty}>
-          Run Analysis
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ── Analysis Panel (placeholder – backend engine coming later) ── */
+/* ── Analysis Panel ───────────────────────────────────────────── */
 function AnalysisPanel({
   result,
   onClose,
@@ -576,13 +583,14 @@ function AnalysisPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="analysis-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="analysis-overlay">
       <div className="analysis-panel">
         <div className="analysis-header">
           <h2>Architecture Analysis</h2>
           <button className="analysis-close" onClick={onClose}>✕</button>
         </div>
 
+        {/* Key metrics */}
         <div className="analysis-metrics">
           <div className="metric-card metric-latency">
             <div className="metric-value">{result.totalLatencyMs} ms</div>
@@ -610,14 +618,100 @@ function AnalysisPanel({
           </div>
         </div>
 
-        <div className="analysis-placeholder">
-          <div className="analysis-placeholder-icon">🔧</div>
-          <div className="analysis-placeholder-title">Deep analysis coming soon</div>
-          <div className="analysis-placeholder-body">
-            Critical path, suggestions, cloud cost comparison, and distribution
-            gain analysis will be powered by the backend engine in a later iteration.
+        {/* Critical path */}
+        {result.criticalPath.length > 0 && (
+          <div className="analysis-section">
+            <h3>Critical Path</h3>
+            <p className="analysis-dimtext">
+              The slowest route through your architecture (determines max latency).
+            </p>
+            <div className="critical-path">
+              {result.criticalPath.map((id, i) => (
+                <React.Fragment key={id}>
+                  <span className={`cp-node${result.bottleneckNodeId === id ? ' cp-bottleneck' : ''}`}>
+                    {id}
+                    {result.bottleneckNodeId === id && ' ⚠'}
+                  </span>
+                  {i < result.criticalPath.length - 1 && (
+                    <span className="cp-arrow">→</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+            {result.bottleneckLabel && (
+              <div className="analysis-bottleneck-note">
+                ⚠ Bottleneck: <strong>{result.bottleneckLabel}</strong>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Distribution Gain */}
+        {result.distributionGain && (
+          <div className="analysis-section analysis-distribution">
+            <h3>🚀 Distribution Analysis – Monolith vs. Microservices</h3>
+            <div className="dist-comparison">
+              <div className="dist-col dist-current">
+                <div className="dist-col-title">Current (Monolith)</div>
+                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.currentMaxUsers)}</strong></div>
+                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.currentLatencyMs} ms</strong></div>
+                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.currentCostPerHour.toFixed(2)}</strong></div>
+              </div>
+              <div className="dist-arrow">⟹</div>
+              <div className="dist-col dist-distributed">
+                <div className="dist-col-title">Distributed (Microservices + Kafka)</div>
+                <div className="dist-row"><span>Max Users</span><strong>{formatNumber(result.distributionGain.distributedMaxUsers)}</strong></div>
+                <div className="dist-row"><span>Avg Latency</span><strong>{result.distributionGain.distributedLatencyMs} ms</strong></div>
+                <div className="dist-row"><span>Cost/hr</span><strong>${result.distributionGain.distributedCostPerHour.toFixed(2)}</strong></div>
+              </div>
+            </div>
+            <p className="dist-recommendation">{result.distributionGain.recommendation}</p>
+          </div>
+        )}
+
+        {/* Cloud Cost Comparison */}
+        {(result.cloudCosts.aws.costPerHour > 0 || result.cloudCosts.gcp.costPerHour > 0) && (
+          <div className="analysis-section">
+            <h3>☁️ Cloud Cost Comparison</h3>
+            <p className="analysis-dimtext">Estimated hourly cost for this architecture on each provider.</p>
+            <div className="cloud-comparison">
+              {(['aws', 'gcp', 'azure'] as const).map((p) => {
+                const c = result.cloudCosts[p];
+                const labels = { aws: 'AWS', gcp: 'GCP', azure: 'Azure' };
+                const colors = { aws: '#FF9900', gcp: '#4285F4', azure: '#0078D4' };
+                return (
+                  <div key={p} className="cloud-col">
+                    <div className="cloud-badge" style={{ background: colors[p] }}>{labels[p]}</div>
+                    <div className="cloud-metric">
+                      <span className="cloud-metric-value">${c.costPerHour.toFixed(2)}</span>
+                      <span className="cloud-metric-label">/ hour</span>
+                    </div>
+                    <div className="cloud-metric">
+                      <span className="cloud-metric-value">${c.costPerMillion.toFixed(3)}</span>
+                      <span className="cloud-metric-label">/ 1M req</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="analysis-dimtext" style={{ marginTop: 8 }}>
+              * Costs use catalog baselines (AWS) with GCP ≈ 12% and Azure ≈ 3% discounts applied.
+              Override individual node costs in the inspector for precise estimates.
+            </p>
+          </div>
+        )}
+
+        {/* Suggestions */}
+        {result.suggestions.length > 0 && (
+          <div className="analysis-section">
+            <h3>Suggestions</h3>
+            <ul className="analysis-suggestions">
+              {result.suggestions.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -632,7 +726,6 @@ function ContextMenu({
   onInspect,
   onConfigureCloud,
   onAddNode,
-  onConfigureInternals,
 }: {
   state: ContextMenuState;
   onClose: () => void;
@@ -641,7 +734,6 @@ function ContextMenu({
   onInspect: (id: string) => void;
   onConfigureCloud: (id: string) => void;
   onAddNode: (x: number, y: number) => void;
-  onConfigureInternals?: (id: string) => void;
 }) {
   if (!state.visible) return null;
   return (
@@ -662,14 +754,6 @@ function ContextMenu({
             >
               ☁ Configure Deployment
             </button>
-            {onConfigureInternals && (
-              <button
-                className="ctx-item"
-                onClick={() => { onConfigureInternals!(state.targetId!); onClose(); }}
-              >
-                ⊞ Configure Internals →
-              </button>
-            )}
             <div className="ctx-divider" />
             <button
               className="ctx-item ctx-danger"
@@ -711,7 +795,7 @@ interface EditorProps {
 }
 
 export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
-  /* ── routing (used to navigate to node detail pages) ────────── */
+  /* ── routing ─────────────────────────────────────────────── */
   const navigate = useNavigate();
   const { projectId, requestId } = useParams<{ projectId: string; requestId?: string }>();
 
@@ -758,6 +842,9 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     active: boolean; sourceId: string; curX: number; curY: number;
   } | null>(null);
 
+  /* ── palette ─────────────────────────────────────────────── */
+  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+
   /* ── context menu ────────────────────────────────────────── */
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState>({
     visible: false, x: 0, y: 0, targetId: null, targetType: null,
@@ -765,21 +852,8 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
   /* ── analysis ────────────────────────────────────────────── */
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [instancePickerNodeId, setInstancePickerNodeId] = useState<string | null>(null);
-
-  /* ── Overview card idle fade (10 s of no canvas activity) ───── */
-  const [overviewIdle, setOverviewIdle] = useState(false);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const resetIdleTimer = useCallback(() => {
-    setOverviewIdle(false);
-    clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => setOverviewIdle(true), 10_000);
-  }, []);
-  useEffect(() => {
-    resetIdleTimer();
-    return () => clearTimeout(idleTimerRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // recompute analysis whenever nodes/edges change
   const latestAnalysis = useMemo(() => analyzeCanvas({ nodes, edges }), [nodes, edges]);
@@ -844,11 +918,19 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     });
   }, [persist, edges]);
 
-  /* ── Drag-drop from ribbon palette ──────────────────────── */
+  /* ── Drag-drop from palette ──────────────────────────────── */
+  const [draggingType, setDraggingType] = useState<string | null>(null);
+
+  const handlePaletteDragStart = useCallback((type: string, e: React.DragEvent) => {
+    setDraggingType(type);
+    e.dataTransfer.setData('componentType', type);
+    e.dataTransfer.effectAllowed = 'copy';
+  }, []);
+
   const handleCanvasDrop = useCallback(
     (e: React.DragEvent<SVGSVGElement>) => {
       e.preventDefault();
-      const type = e.dataTransfer.getData('componentType');
+      const type = e.dataTransfer.getData('componentType') || draggingType;
       if (!type) return;
       const { x, y } = screenToCanvas(e.clientX, e.clientY, viewport, getSvgRect());
       const node = buildNode(type, x - NODE_W / 2, y - NODE_H / 2);
@@ -858,8 +940,9 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
         return next;
       });
       setSelectedNodeId(node.id);
+      setDraggingType(null);
     },
-    [viewport, getSvgRect, persist, edges]
+    [draggingType, viewport, getSvgRect, persist, edges]
   );
 
   /* ── Wheel: zoom ─────────────────────────────────────────── */
@@ -889,8 +972,6 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
       if (e.button !== 0) return;
       // Only pan if clicking on background (not a node / handle)
       if ((e.target as Element).closest('.canvas-node-fo')) return;
-      setSelectedNodeId(null);
-      setSelectedEdgeId(null);
       panRef.current = { active: true, startX: e.clientX, startY: e.clientY, vpX: viewport.x, vpY: viewport.y };
     },
     [viewport]
@@ -1084,36 +1165,57 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
     [viewport, getSvgRect, persist, edges]
   );
 
-  const runAnalysis = useCallback(() => setShowAnalysis(true), []);
+  /* ── Run analysis ─────────────────────────────────────────── */
+  const runAnalysis = useCallback(() => {
+    setAnalysisResult(latestAnalysis);
+    setShowAnalysis(true);
+  }, [latestAnalysis]);
 
   /* ── Render ──────────────────────────────────────────────── */
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
-  const hasPicker = Boolean(instancePickerNodeId);
 
   return (
-    <div className={`editor-root${hasPicker ? ' has-picker' : ''}`}>
+    <div className="editor-root">
       {/* ── Toolbar ─────────────────────────────────────────── */}
       <div className="editor-toolbar">
-        <span className="toolbar-phase-badge">
-          {phase === 'base' ? '🏗 Base' : '📋 Request'}
-        </span>
-      </div>
-
-      <div className='view-shelf'>
-        <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
-          −
-        </button>
-        <span className="toolbar-zoom">{Math.round(viewport.scale * 100)}%</span>
-        <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.min(v.scale * 1.2, MAX_SCALE) }))}>
-          +
-        </button>
-        <button className="toolbar-btn" onClick={resetView} title="Fit to view">
+        <div className="toolbar-left">
+          <span className="toolbar-phase-badge">
+            {phase === 'base' ? '🏗 Base Architecture' : '📋 Request Flow'}
+          </span>
+        </div>
+        <div className="toolbar-center">
+          <span className="toolbar-node-count">{nodes.length} nodes · {edges.length} edges</span>
+        </div>
+        <div className="toolbar-right">
+          <button className="toolbar-btn" onClick={resetView} title="Fit to view">
             ⊞ Fit
-        </button>
+          </button>
+          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.min(v.scale * 1.2, MAX_SCALE) }))}>
+            +
+          </button>
+          <span className="toolbar-zoom">{Math.round(viewport.scale * 100)}%</span>
+          <button className="toolbar-btn" onClick={() => setViewport((v) => ({ ...v, scale: Math.max(v.scale / 1.2, MIN_SCALE) }))}>
+            −
+          </button>
+          <button
+            className="toolbar-btn toolbar-btn-analyze"
+            onClick={runAnalysis}
+            title="Analyse this canvas"
+          >
+            📊 Analyse
+          </button>
+        </div>
       </div>
 
       {/* ── Canvas area ─────────────────────────────────────── */}
-      <div className="editor-canvas-wrap" onMouseMove={resetIdleTimer}>
+      <div className="editor-canvas-wrap">
+        {/* Floating palette */}
+        <Palette
+          onDragStart={handlePaletteDragStart}
+          collapsed={paletteCollapsed}
+          onToggle={() => setPaletteCollapsed((c) => !c)}
+        />
+
         {/* SVG Canvas */}
         <svg
           ref={svgRef}
@@ -1128,17 +1230,17 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
           {/* Grid pattern */}
           <defs>
             <pattern id="grid" width={40 * viewport.scale} height={40 * viewport.scale} x={viewport.x % (40 * viewport.scale)} y={viewport.y % (40 * viewport.scale)} patternUnits="userSpaceOnUse">
-              <path d={`M ${40 * viewport.scale} 0 L 0 0 0 ${40 * viewport.scale}`} fill="none" stroke="rgba(71,95,148,0.1)" strokeWidth="0.5" />
+              <path d={`M ${40 * viewport.scale} 0 L 0 0 0 ${40 * viewport.scale}`} fill="none" stroke="#e5e7eb" strokeWidth="0.5" />
             </pattern>
             {/* Arrow marker */}
             <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#9ca3af" />
             </marker>
             <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#0d9488" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#0f766e" />
             </marker>
             <marker id="arrow-selected" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#4f6ef7" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
             </marker>
           </defs>
 
@@ -1172,7 +1274,7 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
                   />
                   <path
                     d={d}
-                    stroke={isSelected ? '#4f6ef7' : isActive ? '#0d9488' : '#b0bad4'}
+                    stroke={isSelected ? '#3b82f6' : isActive ? '#0f766e' : '#9ca3af'}
                     strokeWidth={isSelected ? 2.5 : 2}
                     strokeDasharray={isActive ? undefined : undefined}
                     fill="none"
@@ -1211,104 +1313,68 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
 
             {/* Nodes */}
             {nodes.map((node) => {
-              const isSelected   = node.id === selectedNodeId;
+              const isSelected = node.id === selectedNodeId;
               const isBottleneck = latestAnalysis?.bottleneckNodeId === node.id;
-              const showHandles  = isSelected || Boolean(connectState?.active);
+              const handles = handlePositions(node);
+              const showHandles = isSelected || connectState?.active;
 
               return (
-                <CanvasNode
-                  key={node.id}
-                  node={node}
-                  selected={isSelected}
-                  isBottleneck={isBottleneck}
-                  showHandles={showHandles}
-                  onDragStart={(e) => startNodeDrag(node.id, e)}
-                  onConnect={(e) => startConnect(node.id, e)}
-                  onContextMenu={(e) => handleContextMenu(e, node.id, 'node')}
-                  onInspect={() => setSelectedNodeId(node.id)}
-                  onUpdate={updateNode}
-                  onConfigure={
-                    projectId
-                      ? () => {
-                          const base = `/projects/${projectId}`;
-                          const url = requestId
-                            ? `${base}/requests/${requestId}/nodes/${node.id}`
-                            : `${base}/nodes/${node.id}`;
-                          navigate(url);
-                        }
-                      : undefined
-                  }
-                />
+                <g key={node.id}>
+                  {/* Node foreignObject – HTML inside SVG */}
+                  <foreignObject
+                    x={node.x}
+                    y={node.y}
+                    width={node.width}
+                    height={node.height}
+                    className="canvas-node-fo"
+                    onContextMenu={(e) => handleContextMenu(e as unknown as React.MouseEvent, node.id, 'node')}
+                  >
+                    <NodeCard
+                      node={node}
+                      selected={isSelected}
+                      isBottleneck={isBottleneck}
+                      onMouseDown={(e) => startNodeDrag(node.id, e)}
+                    />
+                  </foreignObject>
+
+                  {/* Connection handles */}
+                  {Object.entries(handles).map(([pos, { x, y }]) => (
+                    <circle
+                      key={pos}
+                      cx={x}
+                      cy={y}
+                      r={HANDLE_R}
+                      className={`conn-handle ${showHandles ? 'conn-handle--visible' : ''}`}
+                      onMouseDown={(e) => startConnect(node.id, e)}
+                    />
+                  ))}
+                </g>
               );
             })}
           </g>
         </svg>
 
-      </div>
-
-      {/* ── Floating right panels ──────────────────────────────── */}
-      <div className="editor-float-right">
-        <div
-          className={`editor-float-card editor-float-overview${selectedNode ? ' card-dimmed' : overviewIdle ? ' card-idle' : ''}`}
-          onMouseEnter={resetIdleTimer}
-        >
-          <div className="efc-head">
-            <span className="efc-title">Architecture</span>
-            <div className="efc-chips">
-              <span className="efc-chip">{nodes.length} nodes</span>
-              <span className="efc-chip">{edges.length} edges</span>
-            </div>
-          </div>
-          {nodes.length > 0 && (
-            <div className="efc-metrics">
-              <div className="efc-metric">
-                <span className="efc-metric-val">
-                  {latestAnalysis.totalLatencyMs > 0 ? `${latestAnalysis.totalLatencyMs} ms` : '—'}
-                </span>
-                <span className="efc-metric-lbl">latency</span>
-              </div>
-              <div className="efc-metric">
-                <span className="efc-metric-val">{formatNumber(latestAnalysis.throughputRps)}</span>
-                <span className="efc-metric-lbl">rps</span>
-              </div>
-              <div className="efc-metric">
-                <span className={`efc-metric-val${latestAnalysis.totalLatencyMs > 500 ? ' warn' : ''}`}>
-                  {latestAnalysis.costPerHour > 0 ? `$${latestAnalysis.costPerHour.toFixed(2)}` : '—'}
-                </span>
-                <span className="efc-metric-lbl">$/hr</span>
-              </div>
-            </div>
-          )}
-          {latestAnalysis.bottleneckLabel && (
-            <div className="efc-bottleneck">⚠ {latestAnalysis.bottleneckLabel}</div>
-          )}
-          <button className="efc-analyse-btn" onClick={runAnalysis} disabled={nodes.length === 0}>
-            ▶ Run Analysis
-          </button>
-        </div>
-
+        {/* Node Inspector floating right panel */}
         {selectedNode && (
-          <div className="editor-float-inspector">
-            <NodeInspector
-              node={selectedNode}
-              analysis={latestAnalysis}
-              onUpdate={updateNode}
-              onDelete={() => deleteNode(selectedNode.id)}
-              onClose={() => setSelectedNodeId(null)}
-              onOpenPicker={(id) => setInstancePickerNodeId(id)}
-              onConfigureInternals={
-                NODE_EDITOR_TYPES.has(selectedNode.type) && projectId
-                  ? () => {
-                      const base = `/projects/${projectId}`;
-                      const url = requestId
-                        ? `${base}/requests/${requestId}/nodes/${selectedNode.id}`
-                        : `${base}/nodes/${selectedNode.id}`;
-                      navigate(url);
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          <NodeInspector
+            node={selectedNode}
+            analysis={latestAnalysis}
+            onUpdate={updateNode}
+            onDelete={() => deleteNode(selectedNode.id)}
+            onClose={() => setSelectedNodeId(null)}
+            onOpenPicker={(id) => setInstancePickerNodeId(id)}
+            onConfigureInternals={
+              CONFIGURABLE_TYPES.has(selectedNode.type) && projectId
+                ? () => {
+                    const base = `/projects/${projectId}`;
+                    const url = requestId
+                      ? `${base}/requests/${requestId}/nodes/${selectedNode.id}`
+                      : `${base}/nodes/${selectedNode.id}`;
+                    navigate(url);
+                  }
+                : undefined
+            }
+          />
         )}
       </div>
 
@@ -1321,23 +1387,11 @@ export function Editor({ phase, activeCanvas, onCanvasChange }: EditorProps) {
         onInspect={(id) => setSelectedNodeId(id)}
         onConfigureCloud={(id) => setInstancePickerNodeId(id)}
         onAddNode={addNodeAt}
-        onConfigureInternals={
-          ctxMenu.targetType === 'node' && ctxMenu.targetId && projectId &&
-          NODE_EDITOR_TYPES.has(nodes.find((n) => n.id === ctxMenu.targetId)?.type ?? '')
-            ? (id) => {
-                const base = `/projects/${projectId}`;
-                const url = requestId
-                  ? `${base}/requests/${requestId}/nodes/${id}`
-                  : `${base}/nodes/${id}`;
-                navigate(url);
-              }
-            : undefined
-        }
       />
 
       {/* Analysis Panel */}
-      {showAnalysis && (
-        <AnalysisPanel result={latestAnalysis} onClose={() => setShowAnalysis(false)} />
+      {showAnalysis && analysisResult && (
+        <AnalysisPanel result={analysisResult} onClose={() => setShowAnalysis(false)} />
       )}
 
       {/* Instance Picker modal */}
