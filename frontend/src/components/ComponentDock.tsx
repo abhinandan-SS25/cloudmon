@@ -4,8 +4,9 @@
    onto the canvas. No Tailwind — uses App.css `.dock-*` classes.
    ═══════════════════════════════════════════════════════════════ */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Search, X,
+  Search, X, Home, ChevronRight,
   MonitorSmartphone, Network, Cpu, Database, HardDrive,
   ShieldCheck, Activity,
   Laptop, Smartphone, CloudLightning, Compass,
@@ -13,6 +14,8 @@ import {
   Zap, LayoutTemplate, FastForward, Cloud, FolderOpen, Inbox, Workflow,
   FileText, GitBranch, Key,
 } from 'lucide-react';
+import { useProjects } from '../context/ProjectsContext';
+import { findLeafById } from '../utils/canvasUtils';
 
 /* ── Icon map (needed for serialisation across drag) ────────── */
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -124,6 +127,17 @@ export function ComponentDock() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
 
+  /* breadcrumb context */
+  const navigate = useNavigate();
+  const { projectId, requestId } = useParams<{ projectId?: string; requestId?: string }>();
+  const { getProject } = useProjects();
+  const project = projectId ? getProject(projectId) : null;
+  const projectName = project?.name ?? 'Untitled';
+  const requestName = useMemo(() => {
+    if (!project || !requestId) return null;
+    return findLeafById(project.requests, requestId)?.name ?? null;
+  }, [project, requestId]);
+
   /* focus search input when search tray opens */
   useEffect(() => {
     if (activeTray === 'search') {
@@ -207,6 +221,43 @@ export function ComponentDock() {
 
       {/* ── Bottom dock bar ───────────────────────────────── */}
       <div className="dock-bar">
+        {/* Home button */}
+        <button
+          className="dock-btn dock-btn--home"
+          onClick={() => navigate('/')}
+          title="Go home"
+        >
+          <Home size={19} strokeWidth={2} />
+          <span className="dock-btn-label">Home</span>
+        </button>
+
+        <div className="dock-divider" />
+
+        {/* Breadcrumb: Projects > Name > Request */}
+        <div className="dock-breadcrumb" title={requestName ? `${projectName} › ${requestName}` : projectName}>
+          <span
+            className="dock-crumb"
+            onClick={() => navigate('/projects')}
+          >
+            Projects
+          </span>
+          <ChevronRight size={11} className="dock-crumb-sep" />
+          <span
+            className={`dock-crumb${!requestName ? ' dock-crumb--active' : ''}`}
+            onClick={() => navigate(`/projects/${projectId}`)}
+          >
+            {projectName}
+          </span>
+          {requestName && (
+            <>
+              <ChevronRight size={11} className="dock-crumb-sep" />
+              <span className="dock-crumb dock-crumb--active">{requestName}</span>
+            </>
+          )}
+        </div>
+
+        <div className="dock-divider" />
+
         {/* Search */}
         <button
           className={`dock-btn${activeTray === 'search' ? ' dock-btn--active' : ''}`}
