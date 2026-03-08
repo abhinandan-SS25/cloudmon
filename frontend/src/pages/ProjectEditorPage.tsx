@@ -6,6 +6,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaFolderPlus, FaFolderOpen } from "react-icons/fa";
+import { Home, ChevronRight } from 'lucide-react';
 import { Editor } from '../components/Editor';
 import { FileTree } from '../components/FileTree';
 import { useProjects } from '../context/ProjectsContext';
@@ -63,7 +64,7 @@ export default function ProjectEditorPage() {
   } = useProjects();
 
   const [canvasSearch, setCanvasSearch] = useState('');
-  const [stageOpen, setStageOpen] = useState(true);
+  const [stageOpen, setStageOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
   // Close context menu on any global click
@@ -228,10 +229,28 @@ export default function ProjectEditorPage() {
 
             {/* ── Title bar ─────────────────────────────────── */}
             <div className="shelf-title-bar">
-              <span className="shelf-title-icon"><FaFolderOpen /></span>
-              <div className="shelf-title-text">
-                <span className="shelf-title-label">EXPLORER</span>
-                <span className="shelf-title-sub">{project.name}</span>
+              <button
+                className="shelf-home-btn"
+                onClick={() => navigate('/')}
+                title="Home"
+              >
+                <Home size={13} />
+              </button>
+              <div className="shelf-breadcrumb">
+                <span className="shelf-crumb" onClick={() => navigate('/projects')}>Projects</span>
+                <ChevronRight size={10} className="shelf-crumb-sep" />
+                <span
+                  className={`shelf-crumb${!requestId ? ' shelf-crumb--active' : ''}`}
+                  onClick={() => navigate(`/projects/${projectId}`)}
+                >
+                  {project.name}
+                </span>
+                {requestId && activeRequest && (
+                  <>
+                    <ChevronRight size={10} className="shelf-crumb-sep" />
+                    <span className="shelf-crumb shelf-crumb--active">{activeRequest.name}</span>
+                  </>
+                )}
               </div>
               <button
                 className="shelf-title-close"

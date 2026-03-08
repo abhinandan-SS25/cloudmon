@@ -4,25 +4,22 @@
    onto the canvas. No Tailwind — uses App.css `.dock-*` classes.
    ═══════════════════════════════════════════════════════════════ */
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Search, X, Home, ChevronRight,
+  Search, X,
   MonitorSmartphone, Network, Cpu, Database, HardDrive,
-  ShieldCheck, Activity,
-  Laptop, Smartphone, CloudLightning, Compass,
-  Waypoints, SplitSquareHorizontal, Shield, Lock, Server, Box, Hexagon,
-  Zap, LayoutTemplate, FastForward, Cloud, FolderOpen, Inbox, Workflow,
-  FileText, GitBranch, Key,
+  ShieldCheck, Activity, Inbox,
+  Monitor, Smartphone, Globe, Router, Split, Layout,
+  Shield, Lock, Server, Box, Zap, Layers,
+  Package, Folder, MessageSquare, GitCommit, FileText, Key,
 } from 'lucide-react';
-import { useProjects } from '../context/ProjectsContext';
-import { findLeafById } from '../utils/canvasUtils';
+import { Container, Boxes } from 'lucide-react';
 
-/* ── Icon map (needed for serialisation across drag) ────────── */
+/* ── Icon map (serialisable name → component) ───────────────── */
 const ICON_MAP: Record<string, React.ElementType> = {
-  Laptop, Smartphone, CloudLightning, Compass, Waypoints, Network,
-  SplitSquareHorizontal, Shield, Lock, Server, Cpu, Zap, Box, Hexagon,
-  Database, LayoutTemplate, FastForward, Search, Cloud, HardDrive,
-  FolderOpen, Inbox, Workflow, Activity, FileText, GitBranch, Key,
+  Monitor, Smartphone, Globe, Router, Split, Layout,
+  Shield, Lock, Server, Box, Zap, Container, Boxes, Layers,
+  Database, Package, Folder, MessageSquare, GitCommit, Search,
+  HardDrive, Activity, FileText, Key, Network,
 };
 
 /* ── Catalog ─────────────────────────────────────────────────── */
@@ -37,41 +34,41 @@ interface DockItem {
 
 const CATALOG: Record<string, DockItem> = {
   /* CLIENT */
-  client:         { type: 'client',         label: 'Web Client',      category: 'client',       icon: 'Laptop',               color: '#e0e7ff', textColor: '#3730a3' },
-  mobile_client:  { type: 'mobile_client',  label: 'Mobile App',      category: 'client',       icon: 'Smartphone',           color: '#e0e7ff', textColor: '#3730a3' },
+  client:         { type: 'client',         label: 'Web Client',      category: 'client',       icon: 'Monitor',      color: '#e0e7ff', textColor: '#3730a3' },
+  mobile_client:  { type: 'mobile_client',  label: 'Mobile App',      category: 'client',       icon: 'Smartphone',   color: '#e0e7ff', textColor: '#3730a3' },
   /* NETWORK */
-  cdn:            { type: 'cdn',            label: 'CDN',             category: 'network',      icon: 'CloudLightning',       color: '#fef3c7', textColor: '#92400e' },
-  dns:            { type: 'dns',            label: 'DNS',             category: 'network',      icon: 'Compass',              color: '#fef3c7', textColor: '#92400e' },
-  api_gateway:    { type: 'api_gateway',    label: 'API Gateway',     category: 'network',      icon: 'Waypoints',            color: '#fef3c7', textColor: '#92400e' },
-  load_balancer:  { type: 'load_balancer',  label: 'Load Balancer',   category: 'network',      icon: 'SplitSquareHorizontal',color: '#fef3c7', textColor: '#92400e' },
+  cdn:            { type: 'cdn',            label: 'CDN',             category: 'network',      icon: 'Globe',        color: '#fef3c7', textColor: '#92400e' },
+  dns:            { type: 'dns',            label: 'DNS',             category: 'network',      icon: 'Network',      color: '#fef3c7', textColor: '#92400e' },
+  api_gateway:    { type: 'api_gateway',    label: 'API Gateway',     category: 'network',      icon: 'Router',       color: '#fef3c7', textColor: '#92400e' },
+  load_balancer:  { type: 'load_balancer',  label: 'Load Balancer',   category: 'network',      icon: 'Split',        color: '#fef3c7', textColor: '#92400e' },
   /* SECURITY */
-  firewall:       { type: 'firewall',       label: 'WAF / Firewall',  category: 'security',     icon: 'Shield',               color: '#fee2e2', textColor: '#991b1b' },
-  vpn:            { type: 'vpn',            label: 'VPN Gateway',     category: 'security',     icon: 'Lock',                 color: '#fee2e2', textColor: '#991b1b' },
-  vault:          { type: 'vault',          label: 'Secret Vault',    category: 'security',     icon: 'Key',                  color: '#fee2e2', textColor: '#991b1b' },
+  firewall:       { type: 'firewall',       label: 'WAF / Firewall',  category: 'security',     icon: 'Shield',       color: '#fee2e2', textColor: '#991b1b' },
+  vpn:            { type: 'vpn',            label: 'VPN Gateway',     category: 'security',     icon: 'Lock',         color: '#fee2e2', textColor: '#991b1b' },
+  vault:          { type: 'vault',          label: 'Secret Vault',    category: 'security',     icon: 'Key',          color: '#fee2e2', textColor: '#991b1b' },
   /* COMPUTE */
-  web_server:     { type: 'web_server',     label: 'Web Server',      category: 'compute',      icon: 'Server',               color: '#d1fae5', textColor: '#065f46' },
-  app_server:     { type: 'app_server',     label: 'App Server',      category: 'compute',      icon: 'Cpu',                  color: '#d1fae5', textColor: '#065f46' },
-  serverless:     { type: 'serverless',     label: 'Serverless Func', category: 'compute',      icon: 'Zap',                  color: '#d1fae5', textColor: '#065f46' },
-  container:      { type: 'container',      label: 'Container',       category: 'compute',      icon: 'Box',                  color: '#d1fae5', textColor: '#065f46' },
-  kubernetes:     { type: 'kubernetes',     label: 'K8s Cluster',     category: 'compute',      icon: 'Hexagon',              color: '#d1fae5', textColor: '#065f46' },
+  web_server:     { type: 'web_server',     label: 'Web Server',      category: 'compute',      icon: 'Layout',       color: '#d1fae5', textColor: '#065f46' },
+  app_server:     { type: 'app_server',     label: 'App Server',      category: 'compute',      icon: 'Server',       color: '#d1fae5', textColor: '#065f46' },
+  serverless:     { type: 'serverless',     label: 'Serverless Func', category: 'compute',      icon: 'Zap',          color: '#d1fae5', textColor: '#065f46' },
+  container:      { type: 'container',      label: 'Container',       category: 'compute',      icon: 'Container',    color: '#d1fae5', textColor: '#065f46' },
+  kubernetes:     { type: 'kubernetes',     label: 'K8s Cluster',     category: 'compute',      icon: 'Boxes',        color: '#d1fae5', textColor: '#065f46' },
   /* DATA */
-  postgres:       { type: 'postgres',       label: 'PostgreSQL',      category: 'data',         icon: 'Database',             color: '#ede9fe', textColor: '#4c1d95' },
-  sql:            { type: 'sql',            label: 'MySQL',           category: 'data',         icon: 'Database',             color: '#ede9fe', textColor: '#4c1d95' },
-  dynamodb:       { type: 'dynamodb',       label: 'DynamoDB',        category: 'data',         icon: 'LayoutTemplate',       color: '#ede9fe', textColor: '#4c1d95' },
-  non_relational: { type: 'non_relational', label: 'MongoDB',         category: 'data',         icon: 'LayoutTemplate',       color: '#ede9fe', textColor: '#4c1d95' },
-  redis:          { type: 'redis',          label: 'Redis Cache',     category: 'data',         icon: 'FastForward',          color: '#ede9fe', textColor: '#4c1d95' },
-  elasticsearch:  { type: 'elasticsearch',  label: 'Elasticsearch',   category: 'data',         icon: 'Search',               color: '#ede9fe', textColor: '#4c1d95' },
+  postgres:       { type: 'postgres',       label: 'PostgreSQL',      category: 'data',         icon: 'Database',     color: '#ede9fe', textColor: '#4c1d95' },
+  sql:            { type: 'sql',            label: 'MySQL',           category: 'data',         icon: 'Database',     color: '#ede9fe', textColor: '#4c1d95' },
+  dynamodb:       { type: 'dynamodb',       label: 'DynamoDB',        category: 'data',         icon: 'Database',     color: '#ede9fe', textColor: '#4c1d95' },
+  non_relational: { type: 'non_relational', label: 'MongoDB',         category: 'data',         icon: 'Layers',       color: '#ede9fe', textColor: '#4c1d95' },
+  redis:          { type: 'redis',          label: 'Redis Cache',     category: 'data',         icon: 'Zap',          color: '#ede9fe', textColor: '#4c1d95' },
+  elasticsearch:  { type: 'elasticsearch',  label: 'Elasticsearch',   category: 'data',         icon: 'Search',       color: '#ede9fe', textColor: '#4c1d95' },
   /* STORAGE */
-  object_storage: { type: 'object_storage', label: 'S3 / Object',    category: 'storage',      icon: 'Cloud',                color: '#fff7ed', textColor: '#7c2d12' },
-  block_storage:  { type: 'block_storage',  label: 'EBS / Block',    category: 'storage',      icon: 'HardDrive',            color: '#fff7ed', textColor: '#7c2d12' },
-  nfs:            { type: 'nfs',            label: 'NFS / Shared',   category: 'storage',      icon: 'FolderOpen',           color: '#fff7ed', textColor: '#7c2d12' },
+  object_storage: { type: 'object_storage', label: 'S3 / Object',    category: 'storage',      icon: 'Package',      color: '#fff7ed', textColor: '#7c2d12' },
+  block_storage:  { type: 'block_storage',  label: 'EBS / Block',    category: 'storage',      icon: 'HardDrive',    color: '#fff7ed', textColor: '#7c2d12' },
+  nfs:            { type: 'nfs',            label: 'NFS / Shared',   category: 'storage',      icon: 'Folder',       color: '#fff7ed', textColor: '#7c2d12' },
   /* MESSAGING */
-  message_queue:  { type: 'message_queue',  label: 'Message Queue',  category: 'messaging',    icon: 'Inbox',                color: '#ecfdf5', textColor: '#064e3b' },
-  kafka:          { type: 'kafka',          label: 'Kafka Stream',   category: 'messaging',    icon: 'Workflow',             color: '#ecfdf5', textColor: '#064e3b' },
+  message_queue:  { type: 'message_queue',  label: 'Message Queue',  category: 'messaging',    icon: 'MessageSquare',color: '#ecfdf5', textColor: '#064e3b' },
+  kafka:          { type: 'kafka',          label: 'Kafka Stream',   category: 'messaging',    icon: 'Activity',     color: '#ecfdf5', textColor: '#064e3b' },
   /* OBSERVABILITY */
-  monitoring:     { type: 'monitoring',     label: 'Metrics',        category: 'observability', icon: 'Activity',            color: '#f0fdf4', textColor: '#14532d' },
-  logging:        { type: 'logging',        label: 'Logs',           category: 'observability', icon: 'FileText',            color: '#f0fdf4', textColor: '#14532d' },
-  tracing:        { type: 'tracing',        label: 'Tracing',        category: 'observability', icon: 'GitBranch',           color: '#f0fdf4', textColor: '#14532d' },
+  monitoring:     { type: 'monitoring',     label: 'Metrics',        category: 'observability', icon: 'Activity',    color: '#f0fdf4', textColor: '#14532d' },
+  logging:        { type: 'logging',        label: 'Logs',           category: 'observability', icon: 'FileText',    color: '#f0fdf4', textColor: '#14532d' },
+  tracing:        { type: 'tracing',        label: 'Tracing',        category: 'observability', icon: 'GitCommit',   color: '#f0fdf4', textColor: '#14532d' },
 };
 
 /* ── Category metadata ───────────────────────────────────────── */
@@ -81,7 +78,7 @@ const CATEGORY_META: Record<string, CatMeta> = {
   network:       { label: 'Network',   icon: Network           },
   security:      { label: 'Security',  icon: ShieldCheck       },
   compute:       { label: 'Compute',   icon: Cpu               },
-  data:          { label: 'Database',  icon: Database          },
+  data:          { label: 'Data',      icon: Database          },
   storage:       { label: 'Storage',   icon: HardDrive         },
   messaging:     { label: 'Messaging', icon: Inbox             },
   observability: { label: 'Observe',   icon: Activity          },
@@ -126,17 +123,6 @@ export function ComponentDock() {
   const [activeTray, setActiveTray] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-
-  /* breadcrumb context */
-  const navigate = useNavigate();
-  const { projectId, requestId } = useParams<{ projectId?: string; requestId?: string }>();
-  const { getProject } = useProjects();
-  const project = projectId ? getProject(projectId) : null;
-  const projectName = project?.name ?? 'Untitled';
-  const requestName = useMemo(() => {
-    if (!project || !requestId) return null;
-    return findLeafById(project.requests, requestId)?.name ?? null;
-  }, [project, requestId]);
 
   /* focus search input when search tray opens */
   useEffect(() => {
@@ -221,43 +207,6 @@ export function ComponentDock() {
 
       {/* ── Bottom dock bar ───────────────────────────────── */}
       <div className="dock-bar">
-        {/* Home button */}
-        <button
-          className="dock-btn dock-btn--home"
-          onClick={() => navigate('/')}
-          title="Go home"
-        >
-          <Home size={19} strokeWidth={2} />
-          <span className="dock-btn-label">Home</span>
-        </button>
-
-        <div className="dock-divider" />
-
-        {/* Breadcrumb: Projects > Name > Request */}
-        <div className="dock-breadcrumb" title={requestName ? `${projectName} › ${requestName}` : projectName}>
-          <span
-            className="dock-crumb"
-            onClick={() => navigate('/projects')}
-          >
-            Projects
-          </span>
-          <ChevronRight size={11} className="dock-crumb-sep" />
-          <span
-            className={`dock-crumb${!requestName ? ' dock-crumb--active' : ''}`}
-            onClick={() => navigate(`/projects/${projectId}`)}
-          >
-            {projectName}
-          </span>
-          {requestName && (
-            <>
-              <ChevronRight size={11} className="dock-crumb-sep" />
-              <span className="dock-crumb dock-crumb--active">{requestName}</span>
-            </>
-          )}
-        </div>
-
-        <div className="dock-divider" />
-
         {/* Search */}
         <button
           className={`dock-btn${activeTray === 'search' ? ' dock-btn--active' : ''}`}
