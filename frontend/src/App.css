@@ -968,96 +968,115 @@ body {
 .node-card:active .icon-wrapper { transform: scale(0.93); }
 
 /* ── CSS-only hover tooltip ──────────────────────────────────── */
-/* ── CSS-only hover tooltip (dark command-palette style) ──────── */
+/* ── CSS-only hover tooltip (light card style) ─────────────── */
 .nc-tooltip {
   position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-5px);
-  width: 158px;
-  background: #111827;
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.25);
-  padding: 8px 10px 7px;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%) translateY(-4px);
+  width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(15,23,42,0.14), 0 3px 10px rgba(15,23,42,0.08);
+  padding: 10px 12px 10px;
   pointer-events: auto;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s 0.12s;
-  z-index: 999;
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0.14s;
+  z-index: 9999;
 }
 .node-card:hover .nc-tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translateY(-50%) translateX(0);
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s 0s;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0s;
 }
-.nc-tt-title {
-  font-size: 0.72rem;
+/* Editable inline fields */
+.nc-tt-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  display: block;
+  margin-bottom: 4px;
+}
+.nc-tt-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+.nc-tt-input--label {
+  font-size: 0.9rem;
   font-weight: 700;
-  color: #f1f5f9;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 1px;
+  color: var(--text);
+}
+.nc-tt-input--ip {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  margin-bottom: 8px;
 }
 .nc-tt-type {
-  font-size: 0.58rem;
-  color: rgba(255,255,255,0.38);
+  font-size: 0.72rem;
+  color: var(--text-xs);
   margin-bottom: 6px;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 .nc-tt-divider {
   height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin-bottom: 6px;
+  background: var(--border);
+  margin-bottom: 8px;
 }
 .nc-tt-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 0.62rem;
-  gap: 6px;
-  margin-bottom: 3px;
+  font-size: 0.8rem;
+  gap: 8px;
+  margin-bottom: 4px;
 }
-.nc-tt-row span { color: rgba(255,255,255,0.42); flex-shrink: 0; }
-.nc-tt-row strong { color: #e2e8f0; font-weight: 600; font-family: 'Space Mono', monospace; font-size: 0.59rem; }
+.nc-tt-row span { color: var(--text-dim); flex-shrink: 0; }
+.nc-tt-row strong { color: var(--text); font-weight: 700; font-family: 'Space Mono', monospace; font-size: 0.76rem; }
 .nc-tt-warn {
-  margin-top: 4px;
-  font-size: 0.59rem;
-  color: #fbbf24;
+  margin-top: 6px;
+  font-size: 0.76rem;
+  color: var(--warn);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 .nc-tt-actions {
-  margin-top: 7px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  gap: 6px;
 }
 .nc-tt-btn {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  padding: 3px 5px;
-  border-radius: 4px;
-  color: rgba(255,255,255,0.52);
-  font-size: 0.61rem;
+  flex: 1;
+  text-align: center;
+  background: var(--surface2);
+  border: 1px solid var(--border-hi);
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.76rem;
   cursor: pointer;
   font-family: 'Barlow Condensed', monospace;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  line-height: 1.4;
-  transition: background 0.1s, color 0.1s;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
-.nc-tt-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
-.nc-tt-btn--primary { color: #60a5fa; }
-.nc-tt-btn--primary:hover { background: rgba(96,165,250,0.12); color: #93c5fd; }
+.nc-tt-btn:hover { background: var(--border); color: var(--text); }
+.nc-tt-btn--primary { background: var(--accent-light); border-color: rgba(13,148,136,0.3); color: var(--accent); }
+.nc-tt-btn--primary:hover { background: rgba(13,148,136,0.15); border-color: var(--accent); color: var(--accent-hover); }
 
 .badge-alert {
   position: absolute;
@@ -1140,6 +1159,11 @@ body {
 }
 
 .canvas-node-fo { overflow: visible; }
+/* Bring the hovered node's tooltip above sibling nodes */
+.canvas-node-fo:hover,
+.canvas-node-fo:focus-within {
+  z-index: 9999;
+}
 .canvas-node {
   width: 100%; height: 100%; border-radius: 6px; border: 1px solid var(--border);
   background: var(--surface); overflow: hidden; display: flex; flex-direction: column;
