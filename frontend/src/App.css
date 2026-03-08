@@ -2489,6 +2489,15 @@ body {
   transition: box-shadow 0.2s, transform 0.2s;
 }
 .stage-stack-top:hover { box-shadow: 0 12px 40px -8px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.06); transform: translateY(-2px); }
+.stack-home-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px; border: none;
+  background: var(--accent-light); color: var(--accent);
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.14s, color 0.14s;
+}
+.stack-home-btn:hover { background: var(--accent); color: #fff; }
+.stack-divider { width: 1px; height: 16px; background: rgba(71,95,148,0.18); border-radius: 2px; flex-shrink: 0; margin: 0 2px; }
 .stage-active-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 .stage-stack-label { flex: 1; font-size: 0.85rem; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage-stack-count { font-size: 0.75rem; color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; }

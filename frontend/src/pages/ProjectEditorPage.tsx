@@ -210,6 +210,14 @@ export default function ProjectEditorPage() {
             <div className="stage-stack-ghost stage-stack-ghost--2" />
             <div className="stage-stack-ghost stage-stack-ghost--1" />
             <div className="stage-stack-top">
+              <button
+                className="stack-home-btn"
+                title="Home"
+                onClick={(e) => { e.stopPropagation(); navigate('/'); }}
+              >
+                <Home size={13} />
+              </button>
+              <div className="stack-divider" />
               <span className="stage-active-dot" />
               <span className="stage-stack-label">
                 {phase === 'base'
