@@ -26,9 +26,9 @@ export function nextFirewallId(): string   { return `fw${_firewallCounter++}`; }
 export function nextHostPortId(): string   { return `hp${_hostPortCounter++}`; }
 
 /* ── Default node size ───────────────────────────────────────── */
-/* Match the .node-card CSS: width:240px, padding:14px + icon-area:56px = 84px height */
-export const NODE_W = 110;
-export const NODE_H = 110;
+/* Square icon-box design: 88×88 px. Text overflows below via overflow:visible. */
+export const NODE_W = 88;
+export const NODE_H = 88;
 
 /* ── Empty canvas ────────────────────────────────────────────── */
 export function emptyCanvas(): CanvasState {

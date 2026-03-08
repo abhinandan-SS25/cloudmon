@@ -1,37 +1,22 @@
 /* ═══════════════════════════════════════════════════════════════
    CanvasNode.tsx
-   Positioned, interactive SVG wrapper for an HTML NodeCard.
+   Positioned SVG wrapper for an HTML NodeCard.
 
    Coordinate split:
      Parent <g> → translate(node.x, node.y)  (absolute canvas pos)
      foreignObject → renders NodeCard at (0,0) in local space
-     Handle circles → local coords, one at each edge midpoint:
-       top    (W/2 , 0  )
-       bottom (W/2 , H  )
-       left   (0   , H/2)
-       right  (W   , H/2)
 
-   This makes the component self-contained: move node.x/node.y
-   and everything (card + handles) moves together.
+   Connection handles are HTML <div>s rendered inside NodeCard's
+   .icon-wrapper (absolutely positioned on each edge). They appear
+   only when showHandles=true, and fire onConnect on mousedown.
    ═══════════════════════════════════════════════════════════════ */
 import React from 'react';
 import type { CyNode } from '../../types';
 import { NodeCard } from '../NodeCard';
 
 /* ── Handle appearance ───────────────────────────────────────── */
-const HANDLE_R = 7;
-
-/* ── Edge midpoints in local (0,0) space ────────────────────── */
-/* Circles are offset outward by HANDLE_R so they sit fully     */
-/* outside the card border and never overlap card content.      */
-function localHandles(W: number, H: number) {
-  return [
-    { key: 'top',    cx: W / 2 - 4,        cy: 0 - 6     },
-    { key: 'bottom', cx: W / 2 - 4,        cy: H + 8  },
-    { key: 'left',   cx: 0 - 4,    cy: H / 2        },
-    { key: 'right',  cx: W - 4, cy: H / 2         },
-  ];
-}
+/* Handles are HTML divs inside NodeCard's .icon-wrapper — see  */
+/* App.css .conn-handle classes for their styles.               */
 
 /* ── Props ───────────────────────────────────────────────────── */
 export interface CanvasNodeProps {
@@ -81,31 +66,21 @@ export function CanvasNode({
           /* @ts-ignore */
           xmlns="http://www.w3.org/1999/xhtml"
           style={{ width: '100%', height: '100%', overflow: 'visible', position: 'relative' }}
+          className='center'
         >
           <NodeCard
             node={node}
             selected={selected}
             isBottleneck={isBottleneck}
+            showHandles={showHandles}
             onMouseDown={onDragStart}
+            onConnect={onConnect as any}
             onInspect={onInspect}
             onConfigure={onConfigure}
             onUpdate={onUpdate}
           />
         </div>
       </foreignObject>
-
-      {/* ── Connection handles at the four edge midpoints ─── */}
-      {localHandles(W, H).map(({ key, cx, cy }) => (
-        <rect
-          key={key}
-          x={cx}
-          y={cy}
-          width={7}
-          height={7}
-          className={`conn-handle${showHandles ? ' conn-handle--visible' : ''}`}
-          onMouseDown={onConnect}
-        />
-      ))}
     </g>
   );
 }
